@@ -102,7 +102,7 @@ for r, g in valid[valid.year == 2026].groupby("region"):
     ref["by_region_YTD2026"][r] = kpis(g, n, period_hours("2026-01-01", "2026-09-30"))
 
 (ROOT / "tests").mkdir(exist_ok=True)
-(ROOT / "tests" / "kpi_reference_values.json").write_text(json.dumps(ref, indent=2, ensure_ascii=False))
+(ROOT / "tests" / "kpi_reference_values.json").write_text(json.dumps(ref, indent=2, ensure_ascii=False), encoding="utf-8")
 
 # ======================================================== showcase aggregates
 months = sorted(valid.month.unique())
@@ -245,7 +245,7 @@ showcase = {
     "impact": impact, "portfolio": ref["portfolio"], "dq": ref["dq"],
 }
 (ROOT / "showcase").mkdir(exist_ok=True)
-(ROOT / "showcase" / "data.json").write_text(json.dumps(showcase, ensure_ascii=False, separators=(",", ":")))
+(ROOT / "showcase" / "data.json").write_text(json.dumps(showcase, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 print(json.dumps(ref["portfolio"], indent=1))
 print("DQ:", ref["dq"])
