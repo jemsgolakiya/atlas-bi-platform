@@ -1,0 +1,122 @@
+# =============================================================================
+# ATLAS BI Platform - CI/CD for Power BI (PBIP/TMDL) + Snowflake
+#   PR      -> quality gates (catalogue sync, BPA, unit tests on reference KPIs)
+#   main    -> deploy Snowflake TEST, run DQ, promote Power BI DEV -> TEST,
+#              reconcile KPIs against the published TEST model
+#   release -> data-owner approval (GitHub environment) -> promote TEST -> PROD
+# =============================================================================
+name: powerbi-ci-cd
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      promote_to_prod:
+        description: "Promote TEST -> PROD after approval"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  PIPELINE_ID: ${{ vars.PBI_DEPLOYMENT_PIPELINE_ID }}
+  TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  CLIENT_ID: ${{ secrets.PBI_SP_CLIENT_ID }}
+  CLIENT_SECRET: ${{ secrets.PBI_SP_CLIENT_SECRET }}
+
+jobs:
+  # ---------------------------------------------------------------- quality gates
+  quality-gates:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt
+
+      - name: Measure catalogue is in sync with TMDL / DAX / docs
+        run: |
+          python scripts/generate_measure_artifacts.py
+          git diff --exit-code -- powerbi/semantic-model docs/07_kpi_catalogue.md
+
+      - name: Reference KPIs are reproducible (data + gold + pandas engine)
+        run: |
+          python scripts/generate_data.py
+          python scripts/build_gold.py
+          python scripts/kpi_reference.py
+          python -m pytest tests -q
+
+      - name: Download Tabular Editor 2 CLI
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/TabularEditor/TabularEditor/releases/latest/download/TabularEditor.Portable.zip -OutFile te.zip
+          Expand-Archive te.zip -DestinationPath te
+
+      - name: Best Practice Analyzer (fails on severity 3)
+        shell: pwsh
+        run: |
+          ./te/TabularEditor.exe "powerbi/ATLAS.SemanticModel/definition" `
+            -A "governance/bpa/BPARules.json" -V -W
+          if ($LASTEXITCODE -ne 0) { throw "BPA violations found" }
+
+  # ---------------------------------------------------------------- deploy to TEST
+  deploy-test:
+    needs: quality-gates
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PBI_DEPLOYMENT_PIPELINE_ID != ''   # skip until the Power BI tenant is wired up
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt snowflake-cli
+
+      - name: Deploy Snowflake objects to ATLAS_TEST
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_DEPLOY_USER }}
+          SNOWFLAKE_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_DEPLOY_KEY }}
+        run: |
+          for f in sql/snowflake/0[1-5]_*.sql; do
+            sed 's/ATLAS_PROD/ATLAS_TEST/g' "$f" > /tmp/deploy.sql
+            snow sql -f /tmp/deploy.sql --temporary-connection --authenticator SNOWFLAKE_JWT
+          done
+
+      - name: Run data quality tests (blocking)
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_DEPLOY_USER }}
+          SNOWFLAKE_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_DEPLOY_KEY }}
+        run: |
+          snow sql -q "CALL ATLAS_GOVERNANCE.DQ.SP_RUN_DQ_TESTS()" --format json \
+            --temporary-connection --authenticator SNOWFLAKE_JWT > dq.json
+          python -c "import json,sys; r=json.loads(json.load(open('dq.json'))[0]['SP_RUN_DQ_TESTS']); sys.exit(1 if r['blocking_errors'] else 0)"
+
+      - name: Promote Power BI DEV -> TEST (deployment pipeline)
+        run: python governance/scripts/deploy_pipeline.py --source-stage 0 --note "CI ${{ github.sha }}"
+
+      - name: Refresh TEST model and reconcile KPIs
+        env:
+          WORKSPACE_ID: ${{ vars.PBI_TEST_WORKSPACE_ID }}
+          DATASET_ID: ${{ vars.PBI_TEST_DATASET_ID }}
+        run: |
+          python governance/scripts/refresh_and_wait.py
+          python tests/reconcile_dax.py
+
+  # ---------------------------------------------------------------- promote to PROD (data owner approves)
+  deploy-prod:
+    needs: deploy-test
+    if: github.event_name == 'workflow_dispatch' && inputs.promote_to_prod
+    runs-on: ubuntu-latest
+    environment: production        # required reviewers = Data Owner + BI Platform Owner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt
+      - name: Promote Power BI TEST -> PROD
+        run: python governance/scripts/deploy_pipeline.py --source-stage 1 --note "Release ${{ github.run_number }}"
