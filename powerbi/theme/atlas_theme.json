@@ -1,0 +1,55 @@
+{
+  "name": "ATLAS Corporate",
+  "dataColors": ["#1F4E79", "#2E86AB", "#7FB3D5", "#F18F01", "#C73E1D", "#3B8B5A", "#8E7CC3", "#6C757D"],
+  "good": "#1E8449",
+  "neutral": "#D68910",
+  "bad": "#C0392B",
+  "maximum": "#1F4E79",
+  "center": "#F4F6F8",
+  "minimum": "#C0392B",
+  "background": "#FFFFFF",
+  "foreground": "#1B2733",
+  "tableAccent": "#1F4E79",
+  "textClasses": {
+    "callout":  { "fontSize": 28, "fontFace": "Segoe UI Semibold", "color": "#1B2733" },
+    "title":    { "fontSize": 12, "fontFace": "Segoe UI Semibold", "color": "#1B2733" },
+    "header":   { "fontSize": 11, "fontFace": "Segoe UI Semibold", "color": "#1B2733" },
+    "label":    { "fontSize": 10, "fontFace": "Segoe UI", "color": "#4A5561" },
+    "smallLabel": { "fontSize": 9, "fontFace": "Segoe UI", "color": "#6C757D" }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "background": [{ "show": true, "color": { "solid": { "color": "#FFFFFF" } }, "transparency": 0 }],
+        "border": [{ "show": true, "color": { "solid": { "color": "#E3E8EE" } }, "radius": 6 }],
+        "dropShadow": [{ "show": false }],
+        "visualHeader": [{ "show": true, "foreground": { "solid": { "color": "#6C757D" } } }],
+        "title": [{ "show": true, "fontSize": 12, "fontColor": { "solid": { "color": "#1B2733" } }, "alignment": "left" }],
+        "padding": [{ "top": 8, "bottom": 8, "left": 10, "right": 10 }]
+      }
+    },
+    "page": {
+      "*": {
+        "background": [{ "color": { "solid": { "color": "#F4F6F8" } }, "transparency": 0 }],
+        "outspace": [{ "color": { "solid": { "color": "#F4F6F8" } } }]
+      }
+    },
+    "card": {
+      "*": {
+        "labels": [{ "fontSize": 24, "color": { "solid": { "color": "#1F4E79" } } }],
+        "categoryLabels": [{ "show": true, "fontSize": 10, "color": { "solid": { "color": "#6C757D" } } }]
+      }
+    },
+    "tableEx": {
+      "*": {
+        "grid": [{ "gridVertical": false, "rowPadding": 4 }],
+        "columnHeaders": [{ "fontColor": { "solid": { "color": "#FFFFFF" } }, "backColor": { "solid": { "color": "#1F4E79" } } }]
+      }
+    },
+    "slicer": {
+      "*": {
+        "header": [{ "fontColor": { "solid": { "color": "#4A5561" } }, "textSize": 10 }]
+      }
+    }
+  }
+}

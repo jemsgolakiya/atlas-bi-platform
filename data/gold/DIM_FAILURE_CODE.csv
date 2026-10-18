@@ -1,0 +1,16 @@
+FAILURE_KEY,FAILURE_CODE,FAILURE_DESCRIPTION,FAILURE_CATEGORY,IS_FAILURE
+1,F00,Planned service - no failure,Planned,False
+2,F10,Bearing wear,Mechanical,True
+3,F11,Seal leakage,Mechanical,True
+4,F12,Misalignment / vibration,Mechanical,True
+5,F13,Belt / chain failure,Mechanical,True
+6,F20,Insulation fault,Electrical,True
+7,F21,Motor winding failure,Electrical,True
+8,F22,Control board defect,Electrical,True
+9,F23,Overheating,Electrical,True
+10,F30,Sensor / instrumentation fault,Instrumentation,True
+11,F31,PLC / software error,Instrumentation,True
+12,F40,Refrigerant leak,Process,True
+13,F41,Blockage / fouling,Process,True
+14,F50,Operator error,Human,True
+15,F90,No fault found,Other,True

@@ -1,0 +1,267 @@
+// Power BI Desktop > DAX query view: paste, run, then click 'Update model: Add new measure'
+// above each MEASURE (or 'Update model with changes' to add all at once).
+// Prerequisite: a table named _Measures exists (Home > Enter data > one empty column).
+
+DEFINE
+	// 01 Volume | owner: Field Service
+	MEASURE '_Measures'[Work Orders] =
+		COUNTROWS ( 'Work Orders' )
+
+	// 01 Volume | owner: Asset Management
+	MEASURE '_Measures'[Failure Work Orders] =
+		CALCULATE ( [Work Orders], 'Work Orders'[Is Failure] = TRUE () )
+
+	// 01 Volume | owner: Asset Management
+	MEASURE '_Measures'[Preventive Work Orders] =
+		CALCULATE ( [Work Orders], 'Work Orders'[Work Order Type] = "Preventive" )
+
+	// 01 Volume | owner: Field Service
+	MEASURE '_Measures'[Emergency Work Orders] =
+		CALCULATE ( [Work Orders], 'Work Orders'[Work Order Type] = "Emergency" )
+
+	// 01 Volume | owner: Field Service
+	MEASURE '_Measures'[Open Backlog] =
+		CALCULATE (
+		    [Work Orders],
+		    'Work Orders'[Status] IN { "Open", "In Progress" },
+		    REMOVEFILTERS ( 'Date' )
+		)
+
+	// 02 Cost | owner: Controlling
+	MEASURE '_Measures'[Maintenance Cost] =
+		SUM ( 'Work Orders'[Maintenance Cost] )
+
+	// 02 Cost | owner: Controlling
+	MEASURE '_Measures'[Labor Cost] =
+		SUM ( 'Work Orders'[Labor Cost] )
+
+	// 02 Cost | owner: Controlling
+	MEASURE '_Measures'[Material Cost] =
+		SUM ( 'Work Orders'[Material Cost] )
+
+	// 02 Cost | owner: Controlling
+	MEASURE '_Measures'[Downtime Cost] =
+		SUM ( 'Work Orders'[Downtime Cost] )
+
+	// 02 Cost | owner: Controlling
+	MEASURE '_Measures'[Total Cost of Ownership] =
+		[Maintenance Cost] + [Downtime Cost]
+
+	// 02 Cost | owner: Controlling
+	MEASURE '_Measures'[Cost per Asset] =
+		DIVIDE ( [Maintenance Cost], [Asset Count] )
+
+	// 02 Cost | owner: Controlling
+	MEASURE '_Measures'[TCO per Asset] =
+		DIVIDE ( [Total Cost of Ownership], [Asset Count] )
+
+	// 03 Budget | owner: Controlling
+	MEASURE '_Measures'[Budget] =
+		SUM ( 'Budget'[Budget Amount] )
+
+	// 03 Budget | owner: Controlling
+	MEASURE '_Measures'[Budget Variance] =
+		IF ( NOT ISBLANK ( [Budget] ), [Maintenance Cost] - [Budget] )
+
+	// 03 Budget | owner: Controlling
+	MEASURE '_Measures'[Budget Variance %] =
+		IF ( NOT ISBLANK ( [Budget] ), DIVIDE ( [Maintenance Cost], [Budget] ) - 1 )
+
+	// 03 Budget | owner: Controlling
+	MEASURE '_Measures'[Maintenance Cost Forecast FY] =
+		VAR _lastDate = CALCULATE ( MAX ( 'Work Orders'[Created Date] ), REMOVEFILTERS ( 'Date' ) )
+		VAR _yearStart = DATE ( YEAR ( _lastDate ), 1, 1 )
+		VAR _yearEnd = DATE ( YEAR ( _lastDate ), 12, 31 )
+		VAR _ytd = CALCULATE ( [Maintenance Cost], DATESBETWEEN ( 'Date'[Date], _yearStart, _lastDate ) )
+		VAR _elapsedDays = INT ( _lastDate - _yearStart ) + 1
+		VAR _daysInYear = INT ( _yearEnd - _yearStart ) + 1
+		RETURN
+		    DIVIDE ( _ytd, _elapsedDays ) * _daysInYear
+
+	// 03 Budget | owner: BI Platform
+	MEASURE '_Measures'[Budget Status Color] =
+		VAR _v = [Budget Variance %]
+		RETURN
+		    SWITCH (
+		        TRUE (),
+		        ISBLANK ( _v ), "#8A8F98",
+		        _v > 0.05, "#C0392B",
+		        _v > 0, "#D68910",
+		        "#1E8449"
+		    )
+
+	// 04 Reliability | owner: Asset Management
+	MEASURE '_Measures'[Asset Count] =
+		CALCULATE (
+		    DISTINCTCOUNT ( 'Asset'[Asset ID] ),
+		    'Asset'[Is Current] = TRUE (),
+		    TREATAS ( VALUES ( 'Site'[Site ID] ), 'Asset'[Site ID] )
+		)
+
+	// 04 Reliability | owner: Asset Management
+	MEASURE '_Measures'[Hours in Period] =
+		VAR _lastDataDate = CALCULATE ( MAX ( 'Work Orders'[Created Date] ), REMOVEFILTERS () )
+		VAR _start = MIN ( 'Date'[Date] )
+		VAR _end = MIN ( MAX ( 'Date'[Date] ), _lastDataDate )
+		RETURN
+		    MAX ( ( INT ( _end - _start ) + 1 ) * 24, 0 )
+
+	// 04 Reliability | owner: Asset Management
+	MEASURE '_Measures'[Downtime Hours] =
+		SUM ( 'Work Orders'[Downtime Hours] )
+
+	// 04 Reliability | owner: Asset Management
+	MEASURE '_Measures'[Availability %] =
+		VAR _capacity = [Asset Count] * [Hours in Period]
+		RETURN
+		    DIVIDE ( _capacity - [Downtime Hours], _capacity )
+
+	// 04 Reliability | owner: Asset Management
+	MEASURE '_Measures'[MTBF (h)] =
+		DIVIDE (
+		    [Asset Count] * [Hours in Period] - [Downtime Hours],
+		    [Failure Work Orders]
+		)
+
+	// 04 Reliability | owner: Asset Management
+	MEASURE '_Measures'[MTTR (h)] =
+		CALCULATE (
+		    AVERAGE ( 'Work Orders'[Repair Hours] ),
+		    'Work Orders'[Is Failure] = TRUE (),
+		    'Work Orders'[Status] = "Completed"
+		)
+
+	// 04 Reliability | owner: Asset Management
+	MEASURE '_Measures'[Asset Risk Score] =
+		IF (
+		    HASONEVALUE ( 'Asset'[Asset ID] ),
+		    VAR _crit = CALCULATE ( SELECTEDVALUE ( 'Asset'[Criticality] ), 'Asset'[Is Current] = TRUE () )
+		    VAR _weight = SWITCH ( _crit, "A", 3, "B", 2, "C", 1, 1 )
+		    VAR _age = CALCULATE ( SELECTEDVALUE ( 'Asset'[Asset Age] ), 'Asset'[Is Current] = TRUE () )
+		    VAR _maxDowntime = MAXX ( ALLSELECTED ( 'Asset'[Asset ID] ), [Downtime Hours] )
+		    RETURN
+		        [Failure Work Orders] * _weight * ( 1 + DIVIDE ( _age, 20 ) )
+		            * ( 1 + DIVIDE ( [Downtime Hours], _maxDowntime ) )
+		)
+
+	// 04 Reliability | owner: Asset Management
+	MEASURE '_Measures'[Cost to Replacement Ratio] =
+		IF (
+		    HASONEVALUE ( 'Asset'[Asset ID] ),
+		    DIVIDE (
+		        [Total Cost of Ownership],
+		        CALCULATE ( MAX ( 'Asset'[Replacement Value] ), 'Asset'[Is Current] = TRUE () )
+		    )
+		)
+
+	// 04 Reliability | owner: Asset Management
+	MEASURE '_Measures'[Downtime Pareto Cumulative %] =
+		VAR _current = [Downtime Hours]
+		VAR _table =
+		    ADDCOLUMNS (
+		        ALLSELECTED ( 'Failure Code'[Failure Description] ),
+		        "@downtime", [Downtime Hours]
+		    )
+		VAR _cumulative = SUMX ( FILTER ( _table, [@downtime] >= _current ), [@downtime] )
+		VAR _total = SUMX ( _table, [@downtime] )
+		RETURN
+		    IF ( NOT ISBLANK ( _current ), DIVIDE ( _cumulative, _total ) )
+
+	// 05 Service | owner: Field Service
+	MEASURE '_Measures'[SLA Compliance %] =
+		DIVIDE (
+		    CALCULATE ( [Work Orders], 'Work Orders'[Is SLA Met] = TRUE () ),
+		    CALCULATE ( [Work Orders], NOT ISBLANK ( 'Work Orders'[Started At] ) )
+		)
+
+	// 05 Service | owner: Field Service
+	MEASURE '_Measures'[First Time Fix %] =
+		DIVIDE (
+		    CALCULATE ( [Failure Work Orders], 'Work Orders'[First Time Fix] = TRUE () ),
+		    [Failure Work Orders]
+		)
+
+	// 05 Service | owner: Asset Management
+	MEASURE '_Measures'[PM Ratio %] =
+		DIVIDE ( [Preventive Work Orders], [Preventive Work Orders] + [Failure Work Orders] )
+
+	// 05 Service | owner: Field Service
+	MEASURE '_Measures'[Emergency Share %] =
+		DIVIDE ( [Emergency Work Orders], [Failure Work Orders] )
+
+	// 05 Service | owner: Field Service
+	MEASURE '_Measures'[Avg Response (h)] =
+		AVERAGE ( 'Work Orders'[Response Hours] )
+
+	// 06 Time Intelligence | owner: Controlling
+	MEASURE '_Measures'[Maintenance Cost YTD] =
+		TOTALYTD ( [Maintenance Cost], 'Date'[Date] )
+
+	// 06 Time Intelligence | owner: Controlling
+	MEASURE '_Measures'[Maintenance Cost PY] =
+		CALCULATE ( [Maintenance Cost], SAMEPERIODLASTYEAR ( 'Date'[Date] ) )
+
+	// 06 Time Intelligence | owner: Controlling
+	MEASURE '_Measures'[Maintenance Cost YoY %] =
+		VAR _py = [Maintenance Cost PY]
+		RETURN
+		    IF ( NOT ISBLANK ( _py ), DIVIDE ( [Maintenance Cost] - _py, _py ) )
+
+	// 06 Time Intelligence | owner: Controlling
+	MEASURE '_Measures'[Maintenance Cost 3M Moving Avg] =
+		AVERAGEX (
+		    WINDOW ( -2, REL, 0, REL, ALLSELECTED ( 'Date'[Year Month] ), ORDERBY ( 'Date'[Year Month], ASC ) ),
+		    [Maintenance Cost]
+		)
+
+	// 07 Storytelling | owner: BI Platform
+	MEASURE '_Measures'[Executive Narrative] =
+		VAR _cost = [Maintenance Cost]
+		VAR _var = [Budget Variance %]
+		VAR _sites =
+		    ADDCOLUMNS ( VALUES ( 'Site'[Site Name] ), "@var", [Budget Variance %] )
+		VAR _worst = TOPN ( 1, _sites, [@var], DESC )
+		VAR _worstName = MAXX ( _worst, 'Site'[Site Name] )
+		VAR _worstVar = MAXX ( _worst, [@var] )
+		VAR _scope = SELECTEDVALUE ( 'Site'[Region], "all regions" )
+		RETURN
+		    "Maintenance cost for " & _scope & " is "
+		        & FORMAT ( DIVIDE ( _cost, 1e6 ), "0.00" ) & " M€, "
+		        & FORMAT ( ABS ( _var ), "0.0%" ) & IF ( _var > 0, " above", " below" ) & " budget. "
+		        & "Availability is " & FORMAT ( [Availability %], "0.00%" )
+		        & " with a PM ratio of " & FORMAT ( [PM Ratio %], "0%" ) & ". "
+		        & IF (
+		            _worstVar > 0.05,
+		            "Attention: " & _worstName & " is " & FORMAT ( _worstVar, "0%" ) & " over budget.",
+		            "No site is more than 5% over budget."
+		        )
+
+	// 07 Storytelling | owner: BI Platform
+	MEASURE '_Measures'[Dynamic Page Title] =
+		"Maintenance performance | "
+		    & SELECTEDVALUE ( 'Site'[Region], "All regions" ) & " | "
+		    & IF (
+		        HASONEVALUE ( 'Date'[Year] ),
+		        FORMAT ( VALUES ( 'Date'[Year] ), "0" ),
+		        FORMAT ( MIN ( 'Date'[Date] ), "MMM yyyy" ) & " - " & FORMAT ( MAX ( 'Date'[Date] ), "MMM yyyy" )
+		    )
+
+	// 07 Storytelling | owner: BI Platform
+	MEASURE '_Measures'[Data Freshness] =
+		"Data as of " & FORMAT ( CALCULATE ( MAX ( 'Work Orders'[Created At] ), REMOVEFILTERS () ), "dd.MM.yyyy HH:mm" )
+
+// Smoke test: these numbers must equal tests/kpi_reference_values.json
+EVALUATE
+	SUMMARIZECOLUMNS (
+		'Date'[Year],
+		"Work Orders", [Work Orders],
+		"Maintenance Cost", [Maintenance Cost],
+		"Downtime Cost", [Downtime Cost],
+		"Availability %", [Availability %],
+		"MTTR (h)", [MTTR (h)],
+		"MTBF (h)", [MTBF (h)],
+		"PM Ratio %", [PM Ratio %],
+		"SLA Compliance %", [SLA Compliance %],
+		"First Time Fix %", [First Time Fix %]
+	)
+ORDER BY 'Date'[Year]

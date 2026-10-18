@@ -1,0 +1,16 @@
+failure_code,failure_description,failure_category
+F00,Planned service - no failure,Planned
+F10,Bearing wear,Mechanical
+F11,Seal leakage,Mechanical
+F12,Misalignment / vibration,Mechanical
+F13,Belt / chain failure,Mechanical
+F20,Insulation fault,Electrical
+F21,Motor winding failure,Electrical
+F22,Control board defect,Electrical
+F23,Overheating,Electrical
+F30,Sensor / instrumentation fault,Instrumentation
+F31,PLC / software error,Instrumentation
+F40,Refrigerant leak,Process
+F41,Blockage / fouling,Process
+F50,Operator error,Human
+F90,No fault found,Other

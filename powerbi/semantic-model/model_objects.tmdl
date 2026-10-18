@@ -1,0 +1,139 @@
+createOrReplace
+
+	relationship rel_WorkOrders_CreatedDate
+		fromColumn: 'Work Orders'.'Created Date'
+		toColumn: 'Date'.Date
+
+	relationship rel_WorkOrders_CompletedDate
+		isActive: false
+		fromColumn: 'Work Orders'.'Completed Date'
+		toColumn: 'Date'.Date
+
+	relationship rel_WorkOrders_Asset
+		fromColumn: 'Work Orders'.'Asset Key'
+		toColumn: Asset.'Asset Key'
+
+	relationship rel_WorkOrders_Site
+		fromColumn: 'Work Orders'.'Site Key'
+		toColumn: Site.'Site Key'
+
+	relationship rel_WorkOrders_Technician
+		fromColumn: 'Work Orders'.'Technician Key'
+		toColumn: Technician.'Technician Key'
+
+	relationship rel_WorkOrders_FailureCode
+		fromColumn: 'Work Orders'.'Failure Key'
+		toColumn: 'Failure Code'.'Failure Key'
+
+	relationship rel_Budget_MonthStart
+		fromColumn: Budget.'Month Start'
+		toColumn: 'Date'.Date
+
+	relationship rel_Budget_Site
+		fromColumn: Budget.'Site Key'
+		toColumn: Site.'Site Key'
+
+	/// Members are Entra ID GROUPS (never individuals), assigned in the Power BI service.
+	/// Region entitlements come from Snowflake ATLAS_GOVERNANCE.SECURITY.REGION_ENTITLEMENT,
+	/// i.e. the same table that drives Snowflake row access policies -> one place to audit.
+	role 'Regional Reader'
+		modelPermission: read
+
+		tablePermission Site =
+				'Site'[Site Key]
+				    IN CALCULATETABLE (
+				        VALUES ( 'Security Bridge'[Site Key] ),
+				        'Security Bridge'[User Principal Name] = LOWER ( USERPRINCIPALNAME () )
+				    )
+
+		tablePermission Asset =
+				'Asset'[Site ID]
+				    IN CALCULATETABLE (
+				        VALUES ( 'Site'[Site ID] ),
+				        TREATAS (
+				            CALCULATETABLE (
+				                VALUES ( 'Security Bridge'[Site Key] ),
+				                'Security Bridge'[User Principal Name] = LOWER ( USERPRINCIPALNAME () )
+				            ),
+				            'Site'[Site Key]
+				        )
+				    )
+
+		tablePermission 'Security Bridge' = 'Security Bridge'[User Principal Name] = LOWER ( USERPRINCIPALNAME () )
+
+		tablePermission Technician
+			columnPermission 'Hourly Rate' = none
+			columnPermission Email = none
+
+	/// Company-wide readers (management, Controlling): all rows, but no personal data.
+	role 'Enterprise Reader'
+		modelPermission: read
+
+		tablePermission 'Security Bridge' = FALSE ()
+
+		tablePermission Technician
+			columnPermission 'Hourly Rate' = none
+			columnPermission Email = none
+
+	/// HR business partners: all rows incl. technician cost rates (DSGVO purpose limitation documented in ROPA).
+	role 'HR Full Access'
+		modelPermission: read
+
+	/// Reusable time intelligence for EVERY measure -> no measure explosion (Cost YTD, Cost PY, MTTR YTD, ...).
+	/// Ratio measures (format contains %) get a difference in percentage points instead of a % change.
+	table 'Time Intelligence'
+
+		calculationGroup
+			precedence: 10
+
+			calculationItem Current = SELECTEDMEASURE ()
+				ordinal: 0
+
+			calculationItem YTD = CALCULATE ( SELECTEDMEASURE (), DATESYTD ( 'Date'[Date] ) )
+				ordinal: 1
+
+			calculationItem PY = CALCULATE ( SELECTEDMEASURE (), SAMEPERIODLASTYEAR ( 'Date'[Date] ) )
+				ordinal: 2
+
+			calculationItem 'PY YTD' = CALCULATE ( SELECTEDMEASURE (), DATESYTD ( SAMEPERIODLASTYEAR ( 'Date'[Date] ) ) )
+				ordinal: 3
+
+			calculationItem 'YoY Δ' =
+					VAR _cur = SELECTEDMEASURE ()
+					VAR _py = CALCULATE ( SELECTEDMEASURE (), SAMEPERIODLASTYEAR ( 'Date'[Date] ) )
+					RETURN
+					    IF (
+					        CONTAINSSTRING ( SELECTEDMEASUREFORMATSTRING (), "%" ),
+					        ( _cur - _py ) * 100,
+					        DIVIDE ( _cur - _py, _py )
+					    )
+				ordinal: 4
+				formatStringDefinition =
+						IF (
+						    CONTAINSSTRING ( SELECTEDMEASUREFORMATSTRING (), "%" ),
+						    "+0.0"" pp"";-0.0"" pp""",
+						    "+0.0%;-0.0%;0.0%"
+						)
+
+			calculationItem 'Rolling 12M' =
+					CALCULATE (
+					    SELECTEDMEASURE (),
+					    DATESINPERIOD ( 'Date'[Date], MAX ( 'Date'[Date] ), -12, MONTH )
+					)
+				ordinal: 5
+
+		column 'Time Calculation'
+			dataType: string
+			summarizeBy: none
+			sourceColumn: Name
+			sortByColumn: Ordinal
+
+		column Ordinal
+			dataType: int64
+			isHidden
+			formatString: 0
+			summarizeBy: none
+			sourceColumn: Ordinal
+
+		partition 'Time Intelligence' = calculationGroup
+

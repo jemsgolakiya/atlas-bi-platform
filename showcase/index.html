@@ -1,0 +1,579 @@
+<title>ATLAS Maintenance BI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single 1180px column; an industrial "work-order ticket" header with a hazard strip,
+   then findings, an operable dashboard, and the build evidence mapped to the job description. */
+:root {
+  --paper: #EEF2F5;
+  --surface: #FFFFFF;
+  --ink: #13202B;
+  --muted: #566573;
+  --line: #D3DBE2;
+  --steel: #1F4E79;
+  --steel-soft: #8DB0CF;
+  --signal: #F2B705;
+  --on-signal: #13202B;
+  --good: #1D7A45;
+  --warn: #A86A0B;
+  --bad: #B03A2E;
+  --good-bg: #E3F2E9;
+  --warn-bg: #FBF0DC;
+  --bad-bg: #F8E3E0;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0E151C; --surface: #151F29; --ink: #E4EBF1; --muted: #93A2B0; --line: #263441;
+    --steel: #6FA8DC; --steel-soft: #35587A; --signal: #F5C518; --on-signal: #13202B;
+    --good: #52C285; --warn: #E3A945; --bad: #EC6F62;
+    --good-bg: #16301F; --warn-bg: #33270F; --bad-bg: #3A1B18;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0E151C; --surface: #151F29; --ink: #E4EBF1; --muted: #93A2B0; --line: #263441;
+  --steel: #6FA8DC; --steel-soft: #35587A; --signal: #F5C518; --on-signal: #13202B;
+  --good: #52C285; --warn: #E3A945; --bad: #EC6F62;
+  --good-bg: #16301F; --warn-bg: #33270F; --bad-bg: #3A1B18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 0 64px; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.05; margin: 0; text-wrap: balance; letter-spacing: .005em; }
+h2 { font-size: clamp(1.8rem, 3.2vw, 2.4rem); }
+h3 { font-size: 1.25rem; font-weight: 600; }
+p { margin: 0; }
+.label { font-family: var(--mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+a { color: var(--steel); }
+:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+
+/* ---------- header ticket */
+.hazard { height: 10px; margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); background: repeating-linear-gradient(-45deg, var(--signal) 0 14px, var(--ink) 14px 28px); }
+header.ticket { display: grid; gap: 22px; padding-top: 36px; }
+.ticket-meta { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.ticket-meta span b { color: var(--ink); font-weight: 500; }
+.title-row { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 12px 36px; align-items: end; }
+h1 { font-size: clamp(4.5rem, 14vw, 9.5rem); line-height: .82; letter-spacing: -.01em; }
+.thesis { font-size: clamp(1.1rem, 1.8vw, 1.35rem); max-width: 58ch; color: var(--ink); padding-bottom: 8px; }
+.stack { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-family: var(--mono); font-size: .75rem; padding: 4px 10px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); color: var(--ink); }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--muted); font-size: .95rem; border-top: 1px solid var(--line); padding-top: 14px; }
+
+/* ---------- findings */
+.findings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 3px solid var(--ink); }
+.finding { padding: 18px 20px 4px 0; display: grid; gap: 8px; align-content: start; }
+.finding + .finding { padding-left: 20px; border-left: 1px solid var(--line); }
+.finding .big { font-family: var(--display); font-weight: 700; font-size: clamp(2.2rem, 4vw, 3rem); line-height: 1; }
+.finding .big.mark { background: linear-gradient(transparent 62%, var(--signal) 62% 92%, transparent 92%); color: var(--ink); width: fit-content; }
+.finding p { color: var(--muted); font-size: .95rem; }
+
+/* ---------- dashboard */
+.section-head { display: grid; gap: 10px; max-width: 75ch; }
+.section-head p { color: var(--muted); }
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.board-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); align-items: center; }
+.tabs, .seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.tab, .seg button { font: 500 .92rem var(--body); border: 1px solid transparent; background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 4px; cursor: pointer; }
+.tab:hover, .seg button:hover { color: var(--ink); background: var(--paper); }
+.tab[aria-selected="true"] { color: var(--ink); border-color: var(--line); background: var(--paper); box-shadow: inset 0 -3px 0 var(--signal); }
+.seg { border: 1px solid var(--line); border-radius: 5px; padding: 3px; }
+.seg button { font-family: var(--mono); font-size: .78rem; padding: 5px 9px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.seg-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.panel { padding: 20px 16px 24px; display: grid; gap: 22px; }
+.tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 5px; }
+.tile { padding: 14px 14px 12px; display: grid; gap: 4px; align-content: start; }
+.tile + .tile { border-left: 1px solid var(--line); }
+.tile .v { font-family: var(--display); font-weight: 600; font-size: 1.9rem; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.delta { font-family: var(--mono); font-size: .75rem; }
+.delta.good { color: var(--good); } .delta.bad { color: var(--bad); } .delta.flat { color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 22px; }
+.grid2.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.chart-box { display: grid; gap: 8px; min-width: 0; }
+.chart-box .cap { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.chart-box .cap h3 { font-size: 1.1rem; }
+.canvas-wrap { position: relative; height: 260px; }
+.canvas-wrap.tall { height: 320px; }
+.note { font-size: .92rem; color: var(--muted); max-width: 70ch; }
+.callout { border-left: 4px solid var(--signal); padding: 10px 14px; background: var(--paper); border-radius: 0 4px 4px 0; font-size: .97rem; }
+.callout b { font-weight: 600; }
+
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 5px; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; min-width: 640px; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child, th.l, td.l { text-align: left; }
+thead th { font-family: var(--mono); font-weight: 500; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--paper); position: sticky; top: 0; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.row-alert td { background: var(--bad-bg); }
+.pill { display: inline-block; font-family: var(--mono); font-size: .7rem; padding: 2px 8px; border-radius: 999px; font-weight: 500; }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.crit { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 3px; font-family: var(--mono); font-size: .75rem; font-weight: 500; border: 1px solid var(--line); }
+.crit.A { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.ratio { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.ratio i { display: block; height: 8px; border-radius: 2px; background: var(--bad); }
+
+/* ---------- mapping & build */
+.map { display: grid; gap: 0; border-top: 3px solid var(--ink); }
+.map-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 24px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.map-row .req { font-weight: 600; }
+.map-row .req .label { display: block; margin-bottom: 4px; font-weight: 400; }
+.map-row .ev { color: var(--ink); display: grid; gap: 6px; }
+.map-row code, .hl-grid code { font-family: var(--mono); font-size: .8rem; background: var(--surface); border: 1px solid var(--line); padding: 1px 6px; border-radius: 3px; overflow-wrap: anywhere; }
+
+.flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; position: relative; }
+.stage { padding: 16px 18px; display: grid; gap: 10px; align-content: start; border: 1px solid var(--line); background: var(--surface); }
+.stage + .stage { border-left: 0; }
+.stage h3 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.stage ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: .92rem; }
+.stage li { padding-left: 14px; position: relative; }
+.stage li::before { content: ""; position: absolute; left: 0; top: .62em; width: 6px; height: 2px; background: var(--steel); }
+.stage .label { color: var(--steel); }
+
+.hl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 32px; }
+.hl { display: grid; gap: 8px; align-content: start; border-top: 1px solid var(--ink); padding-top: 12px; }
+.hl p { color: var(--muted); font-size: .96rem; }
+
+.repo { background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: .82rem; line-height: 1.6; margin: 0; color: var(--ink); }
+.repo .c { color: var(--muted); }
+footer { border-top: 1px solid var(--line); padding-top: 18px; color: var(--muted); font-size: .9rem; display: grid; gap: 6px; }
+
+@media (max-width: 980px) {
+  .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tile:nth-child(4) { border-left: 0; }
+  .tile:nth-child(n+4) { border-top: 1px solid var(--line); }
+  .grid2, .grid2.even { grid-template-columns: minmax(0, 1fr); }
+  .findings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .finding:nth-child(3) { padding-left: 0; border-left: 0; }
+  .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stage:nth-child(3) { border-left: 1px solid var(--line); }
+  .stage:nth-child(n+3) { border-top: 0; }
+  .hl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .title-row { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile:nth-child(odd) { border-left: 0; }
+  .tile:nth-child(4) { border-left: 1px solid var(--line); }
+  .tile:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .findings, .flow, .hl-grid { grid-template-columns: minmax(0, 1fr); }
+  .finding + .finding { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .stage { border-left: 1px solid var(--line) !important; }
+  .stage + .stage { border-top: 0; }
+  .map-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .canvas-wrap { height: 230px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <div>
+    <div class="hazard" aria-hidden="true"></div>
+    <header class="ticket">
+      <div class="ticket-meta label">
+        <span>Case study <b>WO-ATLAS-2026</b></span>
+        <span>Role <b>Senior BI Developer · Power BI &amp; Power Platform</b></span>
+        <span>Status <b>Delivered</b></span>
+      </div>
+      <div class="title-row">
+        <h1>ATLAS</h1>
+        <p class="thesis">A governed self-service BI platform for industrial maintenance. Snowflake feeds one certified Power BI model; Power Apps keeps master data audit-proof; governance and coaching make it last.</p>
+      </div>
+      <div class="stack" aria-label="Technology">
+        <span class="chip">Power BI · DAX · TMDL</span><span class="chip">Snowflake</span><span class="chip">Databricks UC</span>
+        <span class="chip">Power Apps · Power Fx</span><span class="chip">Power Automate</span><span class="chip">Azure SQL temporal</span>
+        <span class="chip">GitHub Actions · BPA</span><span class="chip">Python · pytest</span>
+      </div>
+      <div class="facts">
+        <span>Helios Industrial Services GmbH <span class="label">(fictional)</span></span>
+        <span class="num" id="fact-wo">33,464 work orders</span>
+        <span>943 assets · 12 sites · 5 regions</span>
+        <span>Jan 2024 – Sep 2026</span>
+      </div>
+    </header>
+  </div>
+
+  <section aria-labelledby="h-find" style="display:grid;gap:16px">
+    <h2 id="h-find" class="label" style="font-family:var(--mono);font-size:.75rem;font-weight:500">Four decisions the platform supports</h2>
+    <div class="findings">
+      <div class="finding"><span class="big mark num" id="f1">€3.2 M</span><p>Yearly TCO potential from rolling out preventive maintenance company-wide, using half of the pilot's measured effect.</p></div>
+      <div class="finding"><span class="big num" id="f2">−25 %</span><p>TCO per asset in the Süd pilot region after go-live. The control regions rose 2.7 % over the same period.</p></div>
+      <div class="finding"><span class="big num" id="f3">20 pumps</span><p>in Duisburg cost more per year than replacing them: €1.54 M TCO against €0.74 M capex.</p></div>
+      <div class="finding"><span class="big num" id="f4">38 KPIs</span><p>defined once as code and reconciled to the cent against an independent SQL and pandas reference.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-dash" style="display:grid;gap:20px">
+    <div class="section-head">
+      <span class="label">Dashboard preview</span>
+      <h2 id="h-dash">The report the departments open every morning</h2>
+      <p>A web rendition of the Power BI report, built from the same synthetic data and the same KPI definitions. Year to date is January to September 2026, compared with the same months of 2025.</p>
+    </div>
+    <div class="board">
+      <div class="board-bar">
+        <div class="tabs" role="tablist" aria-label="Report pages">
+          <button class="tab" role="tab" id="tab-overview" aria-selected="true" data-tab="overview">Executive overview</button>
+          <button class="tab" role="tab" id="tab-reliability" aria-selected="false" data-tab="reliability">Reliability &amp; assets</button>
+          <button class="tab" role="tab" id="tab-service" aria-selected="false" data-tab="service">Service</button>
+          <button class="tab" role="tab" id="tab-pm" aria-selected="false" data-tab="pm">PM programme</button>
+        </div>
+        <div class="seg-wrap" id="region-wrap">
+          <span class="label">Region</span>
+          <div class="seg" id="region-seg" role="group" aria-label="Region filter"></div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+        <div class="tiles" id="tiles"></div>
+        <p class="callout" id="narrative"></p>
+        <div class="grid2">
+          <div class="chart-box"><div class="cap"><h3>Maintenance cost vs budget</h3><span class="label">€ per month</span></div><div class="canvas-wrap"><canvas id="c-cost" aria-label="Monthly maintenance cost against budget"></canvas></div></div>
+          <div class="chart-box"><div class="cap"><h3>Availability</h3><span class="label">% of asset hours</span></div><div class="canvas-wrap"><canvas id="c-avail" aria-label="Monthly availability"></canvas></div></div>
+        </div>
+        <div class="chart-box">
+          <div class="cap"><h3>Site scorecard, YTD 2026</h3><span class="label">sorted by budget variance</span></div>
+          <div class="tbl-wrap"><table id="t-score"></table></div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-reliability" role="tabpanel" aria-labelledby="tab-reliability" hidden>
+        <p class="callout" id="rr-callout"></p>
+        <div class="chart-box"><div class="cap"><h3>Where downtime comes from</h3><span class="label">failure hours YTD 2026 · cumulative %</span></div><div class="canvas-wrap tall"><canvas id="c-pareto" aria-label="Pareto of downtime by failure mode"></canvas></div></div>
+        <div class="chart-box">
+          <div class="cap"><h3>Repair or replace</h3><span class="label">last 12 months · TCO ÷ replacement value</span></div>
+          <div class="tbl-wrap"><table id="t-replace"></table></div>
+          <p class="note">TCO is repair cost plus downtime cost at Controlling's rates (A €1,200 / B €450 / C €150 per hour). A ratio above 1 means a year of repairs cost more than a new asset.</p>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-service" role="tabpanel" aria-labelledby="tab-service" hidden>
+        <div class="grid2 even">
+          <div class="chart-box"><div class="cap"><h3>SLA compliance by site</h3><span class="label">% started within target</span></div><div class="canvas-wrap tall"><canvas id="c-sla" aria-label="SLA compliance by site"></canvas></div></div>
+          <div class="chart-box"><div class="cap"><h3>First-time fix by skill level</h3><span class="label">failure work orders 2026</span></div><div class="canvas-wrap tall"><canvas id="c-ftf" aria-label="First time fix rate by technician skill level"></canvas></div></div>
+        </div>
+        <div class="chart-box"><div class="cap"><h3>Work order mix</h3><span class="label">count per month</span></div><div class="canvas-wrap"><canvas id="c-mix" aria-label="Monthly work orders by type"></canvas></div></div>
+        <p class="callout">Juniors fix <b>70.6 %</b> of failures on the first visit, seniors <b>85.2 %</b>. The coaching plan pairs juniors with seniors on criticality-A assets.</p>
+      </div>
+
+      <div class="panel" id="panel-pm" role="tabpanel" aria-labelledby="tab-pm" hidden>
+        <p class="callout">Region Süd started a preventive maintenance programme on <b>1 July 2025</b>. The other four regions act as the control group. Twelve months before and after, difference-in-differences on TCO per asset: <b id="did">−28 pp</b>.</p>
+        <div class="chart-box"><div class="cap"><h3>PM ratio, programme region vs control</h3><span class="label">preventive ÷ (preventive + failures)</span></div><div class="canvas-wrap"><canvas id="c-pm" aria-label="PM ratio over time for Süd and other regions"></canvas></div></div>
+        <div class="chart-box"><div class="cap"><h3>Before and after go-live</h3><span class="label">12 months each</span></div><div class="tbl-wrap"><table id="t-impact"></table></div></div>
+      </div>
+    </div>
+    <p class="note">Every number here comes from <code style="font-family:var(--mono);font-size:.8rem">scripts/kpi_reference.py</code>, the same engine the CI pipeline uses to test the published Power BI model.</p>
+  </section>
+
+  <section aria-labelledby="h-map" style="display:grid;gap:20px">
+    <div class="section-head">
+      <span class="label">Job description → evidence</span>
+      <h2 id="h-map">Every requirement, and where to find it</h2>
+    </div>
+    <div class="map" id="map"></div>
+  </section>
+
+  <section aria-labelledby="h-arch" style="display:grid;gap:20px">
+    <div class="section-head">
+      <span class="label">Architecture</span>
+      <h2 id="h-arch">From source system to a decision</h2>
+      <p>Row-level logic lives in Snowflake, aggregation logic in DAX, and access is defined once for both.</p>
+    </div>
+    <div class="flow">
+      <div class="stage"><h3>Sources <span class="label">ingest</span></h3><ul><li>CMMS work orders via Snowpipe</li><li>Asset master data from the Power Apps CRUD app</li><li>HR technician list</li><li>Controlling budget</li></ul></div>
+      <div class="stage"><h3>Snowflake <span class="label">RAW · SILVER · GOLD</span></h3><ul><li>Dynamic tables with freshness targets</li><li>DQ flags, never silent drops</li><li>SCD2 assets, point-in-time joins</li><li>Masking and row-access policies</li><li>9 automated DQ tests, hourly</li></ul></div>
+      <div class="stage"><h3>Power BI <span class="label">certified</span></h3><ul><li>Star schema, single-direction only</li><li>38 measures as code</li><li>RLS and OLS from the shared entitlement table</li><li>Time-intelligence calculation group</li><li>Incremental refresh, DEV → TEST → PROD</li></ul></div>
+      <div class="stage"><h3>People <span class="label">adoption</span></h3><ul><li>Apps per department audience</li><li>Champions build on certified models</li><li>Alerts and approvals in Teams</li><li>Usage and access reviewed monthly</li></ul></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-eng" style="display:grid;gap:20px">
+    <div class="section-head">
+      <span class="label">Engineering details a reviewer will ask about</span>
+      <h2 id="h-eng">What makes it production-grade</h2>
+    </div>
+    <div class="hl-grid">
+      <div class="hl"><h3>Measures as code</h3><p>One YAML file generates the TMDL script, the DAX query view script and the business KPI catalogue, so they cannot drift apart.</p></div>
+      <div class="hl"><h3>Numbers proven before certification</h3><p>CI queries the published model through the REST API and fails if any KPI deviates more than 0.1 % from the independent reference.</p></div>
+      <div class="hl"><h3>Security defined once</h3><p>Snowflake row-access policies and Power BI RLS read the same entitlement table, with ticket IDs and expiry dates for quarterly re-certification.</p></div>
+      <div class="hl"><h3>Audit-proof CRUD app</h3><p>Temporal tables keep every version for 10 years, the app can only call procedures, and a constraint makes self-approval of critical changes impossible.</p></div>
+      <div class="hl"><h3>Best Practice Analyzer gate</h3><p>14 rules covering performance, DAX style, naming, descriptions and PII protection. Severity 3 blocks the merge.</p></div>
+      <div class="hl"><h3>Coaching with a measurable path</h3><p>Four levels from consumer to champion, a graded mini-project before build rights, and adoption KPIs such as share of views on certified content.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-repo" style="display:grid;gap:16px">
+    <div class="section-head"><span class="label">Repository</span><h2 id="h-repo">What is in the repo</h2></div>
+<pre class="repo">atlas-bi-platform/
+├── data/                    <span class="c"># seeded synthetic CSVs + gold layer for local Power BI</span>
+├── sql/snowflake/           <span class="c"># 00 RBAC · 01 raw · 02 silver · 03 gold · 04 security · 05 DQ · 06 analytics</span>
+├── sql/databricks/          <span class="c"># Unity Catalog equivalent: Delta MERGE SCD2, row filters, masks</span>
+├── sql/azure-sql/           <span class="c"># audit-proof CRUD back end (temporal tables, 4-eyes)</span>
+├── powerbi/                 <span class="c"># Power Query, measures.yaml → TMDL/DAX, roles, calc group, theme, blueprint</span>
+├── powerplatform/           <span class="c"># Power Apps source (Power Fx) for the master data app</span>
+├── governance/              <span class="c"># BPA rules, tenant inventory, deployment and refresh scripts</span>
+├── .github/workflows/       <span class="c"># CI/CD: catalogue sync, tests, BPA, DQ, deploy, reconcile</span>
+├── tests/                   <span class="c"># pytest on the gold layer + post-deploy DAX reconciliation</span>
+└── docs/                    <span class="c"># architecture, governance, coaching, Power Platform, insights, KPI catalogue</span></pre>
+  </section>
+
+  <footer>
+    <span>All company names, people and figures are synthetic, generated with a fixed seed so every result is reproducible.</span>
+    <span class="label">ATLAS · portfolio case study · data through 30 Sep 2026</span>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const DATA = {"region_kpis":{"ALL":{"cur":{"work_orders":9237,"total_cost_eur":6590059.35,"labor_hours":27188.88,"mttr_hours":6.757,"mtbf_hours":2787.6,"availability_pct":99.529,"pm_ratio_pct":71.11,"sla_compliance_pct":95.86,"first_time_fix_pct":80.01,"emergency_share_pct":20.94,"cost_per_asset_eur":6988.4,"downtime_cost_eur":15338784.0,"total_cost_of_ownership_eur":21928843.35,"tco_per_asset_eur":23254.34},"ly":{"work_orders":8987,"total_cost_eur":6502573.19,"labor_hours":26781.31,"mttr_hours":7.032,"mtbf_hours":2750.8,"availability_pct":99.508,"pm_ratio_pct":69.33,"sla_compliance_pct":96.46,"first_time_fix_pct":80.81,"emergency_share_pct":21.12,"cost_per_asset_eur":6895.62,"downtime_cost_eur":15330976.5,"total_cost_of_ownership_eur":21833549.69,"tco_per_asset_eur":23153.29},"budget":7068371.0,"assets":943},"Mitte":{"cur":{"work_orders":1400,"total_cost_eur":1005063.3,"labor_hours":4285.81,"mttr_hours":7.024,"mtbf_hours":2564.9,"availability_pct":99.453,"pm_ratio_pct":67.05,"sla_compliance_pct":96.1,"first_time_fix_pct":76.06,"emergency_share_pct":25.27,"cost_per_asset_eur":6790.97,"downtime_cost_eur":2790714.0,"total_cost_of_ownership_eur":3795777.3,"tco_per_asset_eur":25647.14},"ly":{"work_orders":1458,"total_cost_eur":1025704.89,"labor_hours":4527.76,"mttr_hours":7.445,"mtbf_hours":2498.9,"availability_pct":99.471,"pm_ratio_pct":67.54,"sla_compliance_pct":96.02,"first_time_fix_pct":74.35,"emergency_share_pct":19.95,"cost_per_asset_eur":6930.44,"downtime_cost_eur":2462524.5,"total_cost_of_ownership_eur":3488229.39,"tco_per_asset_eur":23569.12},"budget":1031580.0,"assets":148},"Nord":{"cur":{"work_orders":1440,"total_cost_eur":1056087.64,"labor_hours":4293.67,"mttr_hours":6.702,"mtbf_hours":2546.4,"availability_pct":99.492,"pm_ratio_pct":66.81,"sla_compliance_pct":96.28,"first_time_fix_pct":79.17,"emergency_share_pct":26.56,"cost_per_asset_eur":7040.58,"downtime_cost_eur":2716098.0,"total_cost_of_ownership_eur":3772185.64,"tco_per_asset_eur":25147.9},"ly":{"work_orders":1403,"total_cost_eur":994086.05,"labor_hours":4169.74,"mttr_hours":6.809,"mtbf_hours":2843.5,"availability_pct":99.529,"pm_ratio_pct":69.9,"sla_compliance_pct":96.79,"first_time_fix_pct":82.27,"emergency_share_pct":21.8,"cost_per_asset_eur":6627.24,"downtime_cost_eur":2453847.0,"total_cost_of_ownership_eur":3447933.05,"tco_per_asset_eur":22986.22},"budget":1108534.0,"assets":150},"Ost":{"cur":{"work_orders":1346,"total_cost_eur":996105.23,"labor_hours":3989.65,"mttr_hours":6.85,"mtbf_hours":2636.7,"availability_pct":99.519,"pm_ratio_pct":66.05,"sla_compliance_pct":96.71,"first_time_fix_pct":82.24,"emergency_share_pct":22.13,"cost_per_asset_eur":6730.44,"downtime_cost_eur":2216805.0,"total_cost_of_ownership_eur":3212910.23,"tco_per_asset_eur":21708.85},"ly":{"work_orders":1415,"total_cost_eur":1047479.3,"labor_hours":4294.28,"mttr_hours":7.027,"mtbf_hours":2485.7,"availability_pct":99.458,"pm_ratio_pct":66.38,"sla_compliance_pct":97.46,"first_time_fix_pct":81.96,"emergency_share_pct":23.2,"cost_per_asset_eur":7077.56,"downtime_cost_eur":2571145.5,"total_cost_of_ownership_eur":3618624.8,"tco_per_asset_eur":24450.17},"budget":1111872.0,"assets":148},"Süd":{"cur":{"work_orders":2625,"total_cost_eur":1605130.85,"labor_hours":6904.88,"mttr_hours":6.282,"mtbf_hours":4929.3,"availability_pct":99.715,"pm_ratio_pct":84.89,"sla_compliance_pct":97.0,"first_time_fix_pct":79.94,"emergency_share_pct":8.98,"cost_per_asset_eur":6369.57,"downtime_cost_eur":2557710.0,"total_cost_of_ownership_eur":4162840.85,"tco_per_asset_eur":16519.21},"ly":{"work_orders":2351,"total_cost_eur":1677420.61,"labor_hours":6706.81,"mttr_hours":7.326,"mtbf_hours":3520.9,"availability_pct":99.586,"pm_ratio_pct":75.36,"sla_compliance_pct":95.83,"first_time_fix_pct":80.3,"emergency_share_pct":17.77,"cost_per_asset_eur":6656.43,"downtime_cost_eur":3322624.5,"total_cost_of_ownership_eur":5000045.11,"tco_per_asset_eur":19841.45},"budget":1927941.0,"assets":252},"West":{"cur":{"work_orders":2426,"total_cost_eur":1927672.33,"labor_hours":7714.87,"mttr_hours":6.817,"mtbf_hours":2139.1,"availability_pct":99.411,"pm_ratio_pct":63.59,"sla_compliance_pct":93.74,"first_time_fix_pct":81.37,"emergency_share_pct":20.64,"cost_per_asset_eur":7868.05,"downtime_cost_eur":5057457.0,"total_cost_of_ownership_eur":6985129.33,"tco_per_asset_eur":28510.73},"ly":{"work_orders":2360,"total_cost_eur":1757882.34,"labor_hours":7082.72,"mttr_hours":6.695,"mtbf_hours":2456.5,"availability_pct":99.468,"pm_ratio_pct":65.92,"sla_compliance_pct":96.57,"first_time_fix_pct":83.54,"emergency_share_pct":22.62,"cost_per_asset_eur":7175.03,"downtime_cost_eur":4520835.0,"total_cost_of_ownership_eur":6278717.34,"tco_per_asset_eur":25627.42},"budget":1888444.0,"assets":245}},"replace":[{"asset":"PUMP-S05-0336","type":"Pump","site":"Duisburg Rhein","crit":"A","age":26,"failures":16,"tco":232200.0,"repl_value":34863,"ratio":6.66},{"asset":"HVAC-S01-0048","type":"HVAC Unit","site":"Frankfurt Ost","crit":"A","age":28,"failures":9,"tco":216599.0,"repl_value":40834,"ratio":5.3},{"asset":"PUMP-S03-0173","type":"Pump","site":"Hamburg Hafen","crit":"A","age":20,"failures":10,"tco":141276.0,"repl_value":28210,"ratio":5.01},{"asset":"PUMP-S05-0348","type":"Pump","site":"Duisburg Rhein","crit":"A","age":30,"failures":10,"tco":135526.0,"repl_value":30685,"ratio":4.42},{"asset":"PUMP-S04-0247","type":"Pump","site":"Bremen Werk","crit":"A","age":16,"failures":9,"tco":127325.0,"repl_value":29039,"ratio":4.38},{"asset":"PUMP-S07-0513","type":"Pump","site":"Dortmund Nord","crit":"A","age":5,"failures":5,"tco":103944.0,"repl_value":29896,"ratio":3.48},{"asset":"PUMP-S05-0345","type":"Pump","site":"Duisburg Rhein","crit":"B","age":29,"failures":13,"tco":90861.0,"repl_value":27535,"ratio":3.3},{"asset":"COMP-S07-0534","type":"Compressor","site":"Dortmund Nord","crit":"A","age":21,"failures":7,"tco":276345.0,"repl_value":84136,"ratio":3.28},{"asset":"PUMP-S05-0334","type":"Pump","site":"Duisburg Rhein","crit":"A","age":30,"failures":9,"tco":116662.0,"repl_value":40828,"ratio":2.86},{"asset":"PUMP-S02-0121","type":"Pump","site":"Wiesbaden Nord","crit":"A","age":27,"failures":7,"tco":125106.0,"repl_value":48997,"ratio":2.55},{"asset":"PUMP-S02-0089","type":"Pump","site":"Wiesbaden Nord","crit":"A","age":11,"failures":6,"tco":83421.0,"repl_value":33006,"ratio":2.53},{"asset":"PUMP-S11-0836","type":"Pump","site":"Leipzig Nord","crit":"A","age":4,"failures":6,"tco":106157.0,"repl_value":43835,"ratio":2.42},{"asset":"PUMP-S05-0378","type":"Pump","site":"Duisburg Rhein","crit":"A","age":22,"failures":11,"tco":92128.0,"repl_value":39397,"ratio":2.34},{"asset":"PUMP-S07-0522","type":"Pump","site":"Dortmund Nord","crit":"A","age":28,"failures":5,"tco":85519.0,"repl_value":36845,"ratio":2.32},{"asset":"PUMP-S05-0343","type":"Pump","site":"Duisburg Rhein","crit":"B","age":27,"failures":11,"tco":65692.0,"repl_value":28987,"ratio":2.27}],"replace_summary":{"n_ratio_ge_1":76,"duisburg_pumps":20,"duisburg_pumps_tco":1539849.0,"duisburg_pumps_capex":744221},"generated":"2026-10-18","months":["2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09"],"series":{"ALL":{"cost":[792689.2,776437.9,683213.7,676534.4,716909.2,730657.7,707602.0,698043.1,710033.5,664493.9,728645.1,749119.6,747790.1,750624.9,704296.0,755344.7,681071.6,752727.0,691954.0,714779.1,703985.8,668159.7,669290.9,662726.2,745405.1,753868.4,635568.4,673314.6,721450.5,776843.9,767025.4,770788.0,745795.0],"budget":[767163.0,761354.0,676616.0,681264.0,682368.0,802369.0,797914.0,804939.0,681886.0,685293.0,685014.0,763316.0,775392.0,790983.0,704116.0,701470.0,708159.0,831600.0,827477.0,834044.0,712083.0,706238.0,706550.0,787467.0,802430.0,808957.0,728142.0,725963.0,721038.0,845445.0,852535.0,855746.0,728115.0],"availability":[99.451,99.489,99.549,99.548,99.545,99.526,99.473,99.566,99.467,99.576,99.523,99.513,99.457,99.366,99.55,99.512,99.544,99.496,99.541,99.545,99.549,99.599,99.599,99.543,99.56,99.462,99.603,99.586,99.571,99.509,99.473,99.473,99.516],"types":{"Preventive":[569,513,544,532,532,556,492,555,553,562,551,565,524,507,532,540,569,540,605,618,618,586,591,551,622,584,590,568,639,622,597,624,583],"Inspection":[182,203,192,179,193,200,185,183,192,190,197,190,182,193,198,184,179,187,187,187,202,184,180,173,167,167,195,186,174,171,184,179,179],"Corrective":[229,196,170,175,209,200,210,197,194,160,184,190,211,243,180,193,173,207,188,190,178,173,177,184,198,220,147,165,184,213,212,206,199],"Emergency":[57,51,44,52,59,49,64,56,59,47,49,73,65,61,51,51,50,52,44,49,49,35,36,45,51,49,39,42,45,46,65,66,59]},"sla":[96.43,96.37,98.11,96.27,97.08,95.72,96.53,97.38,97.8,97.5,96.43,96.17,96.44,96.81,95.32,96.59,96.81,96.55,98.05,95.88,95.7,96.73,96.34,96.54,96.63,96.18,95.88,94.9,94.82,95.34,96.41,96.28,96.23],"mttr":[7.06,7.14,7.62,7.21,6.32,6.4,6.87,6.25,7.3,7.15,7.38,6.96,7.14,7.16,7.02,7.05,7.49,6.96,7.0,6.68,6.75,7.0,6.69,7.31,6.31,6.77,7.31,6.71,6.96,6.76,7.02,6.66,6.46],"assets":943},"Mitte":{"cost":[110390.3,115141.8,90324.1,111264.5,98813.7,97666.1,94190.4,115528.5,99713.7,98082.5,111064.4,125555.2,126406.6,113543.1,107853.7,124617.4,105966.1,106649.2,111861.6,105836.3,122970.9,101515.4,115216.1,114673.6,96600.4,113520.4,100870.1,94787.5,99397.8,138277.3,136893.4,107112.9,117603.7],"budget":[113400.0,111813.0,101026.0,100963.0,100774.0,114938.0,116594.0,118269.0,101056.0,100018.0,101004.0,112538.0,113553.0,116120.0,102286.0,103346.0,104713.0,119934.0,120892.0,119435.0,104122.0,103560.0,105018.0,115946.0,115677.0,118278.0,107870.0,108062.0,104849.0,122795.0,123920.0,122466.0,107663.0],"availability":[99.29,99.438,99.597,99.533,99.571,99.62,99.461,99.464,99.49,99.631,99.598,99.517,99.487,99.41,99.506,99.424,99.516,99.553,99.456,99.424,99.459,99.542,99.42,99.508,99.483,99.389,99.548,99.611,99.617,99.294,99.381,99.453,99.292],"types":{"Preventive":[79,69,88,86,72,84,81,85,76,88,97,87,88,95,76,85,85,95,94,86,99,85,85,69,69,74,98,74,101,95,84,95,75],"Inspection":[20,27,30,36,38,41,23,19,33,35,35,41,39,18,34,27,29,30,25,26,41,32,31,27,27,27,25,24,26,36,33,28,33],"Corrective":[33,30,23,32,34,28,37,49,31,24,30,31,38,41,27,35,35,31,32,34,36,29,30,31,31,29,24,19,27,39,42,32,38],"Emergency":[12,9,9,8,11,4,8,5,10,10,4,14,6,8,9,10,9,7,10,11,7,5,14,7,12,12,10,8,8,13,9,11,12]},"sla":[95.14,96.3,97.33,97.53,96.13,92.36,95.3,98.73,98.67,97.45,95.78,95.38,95.91,98.15,96.58,95.54,98.1,93.87,98.14,92.36,95.63,95.36,98.12,96.27,96.4,95.07,97.45,96.0,93.21,96.17,95.83,98.8,95.83],"mttr":[8.63,8.2,6.58,5.97,5.53,6.39,7.25,6.15,6.86,6.0,6.73,6.23,7.23,7.43,8.69,7.2,6.96,7.02,7.65,7.55,7.46,7.62,6.8,8.0,6.57,7.24,7.05,7.19,6.14,7.52,7.36,6.75,7.12],"assets":148},"Nord":{"cost":[163899.4,102508.3,120070.7,80821.6,118495.2,121531.9,90843.5,93744.7,114921.3,108975.8,128330.6,105976.7,129485.1,98233.2,99944.8,128425.7,94833.0,111996.6,124889.8,112499.1,93778.8,102275.7,115980.0,87102.8,118035.2,115286.9,94728.0,128473.7,111933.4,123917.2,122278.6,141158.2,100276.6],"budget":[118262.0,121628.0,107078.0,104121.0,106139.0,126847.0,123488.0,123187.0,105196.0,109121.0,108597.0,120076.0,121961.0,123234.0,107668.0,110734.0,111032.0,129802.0,131216.0,129299.0,112531.0,109926.0,109040.0,122182.0,125069.0,127908.0,115348.0,115218.0,112729.0,130080.0,132777.0,135363.0,114042.0],"availability":[99.299,99.569,99.504,99.684,99.541,99.407,99.595,99.625,99.396,99.555,99.562,99.591,99.491,99.387,99.589,99.59,99.634,99.429,99.35,99.632,99.651,99.633,99.558,99.645,99.571,99.373,99.633,99.453,99.458,99.498,99.412,99.39,99.631],"types":{"Preventive":[104,79,93,68,85,92,65,96,87,95,87,88,90,73,92,90,102,93,83,82,94,74,87,77,93,81,67,102,81,86,83,92,88],"Inspection":[25,23,40,22,25,22,21,33,36,30,38,20,29,28,31,27,28,40,19,27,31,22,27,32,22,30,38,31,35,27,38,33,29],"Corrective":[43,30,28,26,33,35,37,27,35,33,31,25,29,31,25,32,23,35,33,34,27,23,34,23,33,39,30,31,22,36,34,38,19],"Emergency":[13,7,6,4,9,12,4,11,11,4,9,10,14,13,8,4,6,7,11,6,6,4,5,6,7,10,4,13,15,12,15,13,13]},"sla":[96.76,95.68,98.2,96.67,98.03,96.89,96.06,98.8,98.22,96.91,96.36,95.8,96.91,99.31,93.59,96.73,94.97,96.57,99.32,97.32,96.84,95.12,96.73,94.2,97.42,96.25,94.24,94.35,96.08,96.89,98.82,97.16,94.78],"mttr":[7.58,5.91,8.8,6.07,6.86,6.25,6.31,5.54,7.22,6.45,6.55,6.95,6.65,6.82,6.77,7.45,7.26,7.23,8.22,5.51,5.1,8.23,6.56,6.21,6.62,7.61,6.0,6.24,7.99,5.52,7.14,7.14,5.72],"assets":150},"Ost":{"cost":[105737.2,160063.4,111424.6,107750.3,105402.3,126179.6,95726.0,104452.7,109965.0,126523.5,98638.3,107820.5,111216.2,136414.8,120405.7,132897.8,108027.5,129261.4,99381.2,105277.3,104597.5,112426.9,116529.4,122482.6,105939.0,121427.5,106769.1,85928.6,114870.8,104133.2,119865.4,120688.7,116483.0],"budget":[121306.0,121351.0,106445.0,108713.0,108411.0,128439.0,126948.0,125982.0,108312.0,110589.0,107317.0,119676.0,120243.0,126341.0,110996.0,110769.0,112810.0,129648.0,129861.0,132482.0,110491.0,112121.0,110717.0,126338.0,129067.0,127395.0,114272.0,113777.0,111927.0,131793.0,136990.0,133750.0,112901.0],"availability":[99.543,99.237,99.675,99.608,99.557,99.464,99.516,99.645,99.476,99.482,99.52,99.478,99.527,99.331,99.493,99.388,99.496,99.247,99.6,99.526,99.492,99.574,99.494,99.451,99.579,99.478,99.589,99.633,99.49,99.462,99.558,99.435,99.444],"types":{"Preventive":[82,98,71,92,76,88,75,85,97,88,86,80,84,87,91,81,92,82,85,89,75,90,87,85,83,64,103,71,80,75,92,72,72],"Inspection":[31,34,32,32,30,35,42,34,25,31,29,29,21,27,36,35,32,21,33,30,26,39,27,29,31,29,27,40,24,25,34,32,26],"Corrective":[39,35,22,23,36,32,22,18,28,27,24,28,26,46,27,37,35,36,31,30,30,34,37,38,33,36,18,24,38,35,28,40,33],"Emergency":[7,14,8,13,9,8,11,10,9,10,9,13,13,8,11,9,9,16,5,8,11,6,4,11,8,9,11,6,6,5,10,12,14]},"sla":[96.86,98.9,99.25,95.62,96.03,96.32,96.0,96.6,98.74,98.72,99.32,96.67,97.92,97.02,97.58,96.91,97.62,98.71,97.4,96.82,97.18,100.0,94.19,97.55,97.42,96.38,98.11,97.16,97.97,94.29,96.95,94.87,97.04],"mttr":[5.48,8.41,5.52,5.95,6.22,7.05,7.04,6.61,7.61,8.08,8.28,8.12,5.98,6.67,7.18,7.37,7.03,7.93,7.14,6.74,6.97,6.44,7.3,6.79,6.21,6.17,7.93,6.33,7.72,7.83,6.68,6.34,6.79],"assets":148},"Süd":{"cost":[225400.6,196359.0,183066.9,193951.7,217947.7,212864.4,206039.0,192228.4,179872.5,153234.9,197169.8,191370.1,186788.6,184202.1,204913.3,163466.6,192044.3,204890.4,145500.7,195715.2,199899.4,161322.3,138500.6,154567.5,202542.7,194094.4,166541.2,160887.0,179260.6,182411.1,167340.0,171077.4,180976.6],"budget":[208972.0,204460.0,183813.0,183612.0,185071.0,218391.0,216661.0,220894.0,188023.0,184281.0,185641.0,204919.0,213136.0,214071.0,195978.0,190971.0,193572.0,228166.0,224317.0,229038.0,194394.0,190551.0,193806.0,214389.0,218379.0,221118.0,195615.0,195762.0,198945.0,233485.0,231231.0,235369.0,198037.0],"availability":[99.496,99.592,99.465,99.504,99.539,99.521,99.444,99.536,99.546,99.592,99.477,99.539,99.482,99.504,99.503,99.598,99.515,99.575,99.797,99.685,99.605,99.737,99.841,99.712,99.681,99.645,99.718,99.744,99.719,99.751,99.728,99.729,99.71],"types":{"Preventive":[152,116,145,140,162,150,135,151,145,152,138,153,121,125,151,149,121,136,198,226,201,192,203,208,228,225,202,190,216,195,209,209,202],"Inspection":[52,63,46,47,58,70,51,49,51,43,51,47,43,65,51,45,45,44,47,58,58,49,45,40,43,44,54,53,39,39,43,47,53],"Corrective":[58,48,41,46,48,60,53,50,45,28,52,51,56,55,51,32,36,57,25,33,39,30,17,30,39,46,29,27,33,31,37,31,31],"Emergency":[11,8,14,16,14,11,18,17,12,12,14,16,13,7,12,15,14,6,3,7,6,5,1,3,3,2,2,4,3,3,5,3,5]},"sla":[96.34,94.47,98.37,97.59,97.16,96.91,96.5,97.38,97.63,96.6,94.9,95.13,95.28,95.24,93.21,95.85,97.69,96.3,97.8,96.91,94.41,96.01,95.86,95.37,98.4,97.79,96.86,95.99,95.53,94.4,97.28,97.24,99.26],"mttr":[7.62,6.61,9.16,7.69,7.1,6.52,7.37,6.68,7.28,8.47,7.43,6.95,7.82,7.13,7.15,7.45,9.37,6.78,5.14,6.28,7.73,5.93,5.97,7.04,6.03,5.72,7.64,7.35,7.13,5.97,5.17,5.95,6.32],"assets":252},"West":{"cost":[187261.7,202365.5,178327.4,182746.4,176250.4,172415.6,220803.1,192088.9,205561.0,177677.4,193442.0,218397.1,193893.6,218231.7,171178.4,205937.2,180200.7,199929.5,210320.7,195451.2,182739.3,190619.3,183064.8,183899.7,222287.9,209539.2,166660.2,203237.8,215988.0,228105.2,220648.1,230750.8,230455.1],"budget":[205223.0,202102.0,178254.0,183855.0,181973.0,213754.0,214223.0,216607.0,179299.0,181284.0,182455.0,206107.0,206499.0,211217.0,187188.0,185650.0,186032.0,224050.0,221191.0,223790.0,190545.0,190080.0,187969.0,208612.0,214238.0,214258.0,195037.0,193144.0,192588.0,227292.0,227617.0,228798.0,195472.0],"availability":[99.538,99.517,99.557,99.481,99.532,99.585,99.409,99.574,99.409,99.597,99.501,99.458,99.35,99.205,99.636,99.503,99.566,99.573,99.412,99.434,99.517,99.486,99.548,99.384,99.464,99.361,99.509,99.46,99.508,99.426,99.253,99.295,99.423],"types":{"Preventive":[152,151,147,146,137,142,136,138,148,139,143,157,141,127,122,135,169,134,145,135,149,145,129,112,149,140,120,131,161,171,129,156,146],"Inspection":[54,56,44,42,42,32,48,48,47,51,44,53,50,55,46,50,45,52,63,46,46,42,50,45,44,37,51,38,50,44,36,39,38],"Corrective":[56,53,56,48,58,45,61,53,55,48,47,55,62,70,50,57,44,48,67,59,46,57,59,62,62,70,46,64,64,72,71,65,78],"Emergency":[14,13,7,11,16,14,23,13,17,11,13,20,19,25,11,13,12,16,15,17,19,15,12,18,21,16,12,11,13,13,26,27,15]},"sla":[96.74,96.7,97.64,94.33,97.63,95.28,97.76,96.03,96.63,97.99,96.76,97.54,96.69,96.03,96.51,97.65,95.93,97.2,97.93,95.33,95.77,96.91,96.8,98.73,93.84,94.68,93.01,92.21,92.71,95.33,93.89,94.08,93.52],"mttr":[6.12,6.7,7.18,8.9,5.91,5.92,6.46,6.15,7.47,6.77,7.74,6.77,7.34,7.47,5.94,6.28,6.72,6.14,6.59,6.95,6.3,7.08,6.52,7.8,6.21,6.97,7.75,6.69,6.32,6.8,7.72,6.79,6.25],"assets":245}},"scorecard":[{"site_id":"S01","site":"Frankfurt Ost","region":"Mitte","assets":64,"cost":430182.64,"budget":433187.0,"variance_pct":-0.7,"availability":99.381,"mttr":7.179,"pm_ratio":65.34,"sla":95.46,"ftf":79.31,"cost_ly":415896.32,"pm_ratio_ly":65.57,"availability_ly":99.522,"lat":50.12,"lon":8.73},{"site_id":"S02","site":"Wiesbaden Nord","region":"Mitte","assets":84,"cost":574880.66,"budget":598393.0,"variance_pct":-3.9,"availability":99.508,"mttr":6.891,"pm_ratio":68.39,"sla":96.62,"ftf":73.27,"cost_ly":609808.57,"pm_ratio_ly":68.89,"availability_ly":99.433,"lat":50.1,"lon":8.24},{"site_id":"S03","site":"Hamburg Hafen","region":"Nord","assets":66,"cost":532216.94,"budget":505784.0,"variance_pct":5.2,"availability":99.471,"mttr":6.776,"pm_ratio":68.6,"sla":96.23,"ftf":82.12,"cost_ly":464936.75,"pm_ratio_ly":71.65,"availability_ly":99.545,"lat":53.54,"lon":9.97},{"site_id":"S04","site":"Bremen Werk","region":"Nord","assets":84,"cost":523870.7,"budget":602750.0,"variance_pct":-13.1,"availability":99.508,"mttr":6.638,"pm_ratio":65.08,"sla":96.33,"ftf":76.59,"cost_ly":529149.3,"pm_ratio_ly":68.44,"availability_ly":99.517,"lat":53.08,"lon":8.8},{"site_id":"S05","site":"Duisburg Rhein","region":"West","assets":90,"cost":844716.52,"budget":745741.0,"variance_pct":13.3,"availability":99.307,"mttr":6.355,"pm_ratio":59.11,"sla":87.66,"ftf":81.61,"cost_ly":683856.45,"pm_ratio_ly":64.5,"availability_ly":99.44,"lat":51.43,"lon":6.76},{"site_id":"S06","site":"Köln Süd","region":"West","assets":64,"cost":415867.19,"budget":450167.0,"variance_pct":-7.6,"availability":99.522,"mttr":6.832,"pm_ratio":65.52,"sla":98.05,"ftf":83.75,"cost_ly":442350.88,"pm_ratio_ly":64.69,"availability_ly":99.413,"lat":50.9,"lon":6.96},{"site_id":"S07","site":"Dortmund Nord","region":"West","assets":91,"cost":667088.62,"budget":692536.0,"variance_pct":-3.7,"availability":99.437,"mttr":7.484,"pm_ratio":67.57,"sla":97.7,"ftf":79.41,"cost_ly":631675.01,"pm_ratio_ly":68.25,"availability_ly":99.535,"lat":51.53,"lon":7.46},{"site_id":"S08","site":"München Ost","region":"Süd","assets":79,"cost":507605.39,"budget":629939.0,"variance_pct":-19.4,"availability":99.723,"mttr":5.808,"pm_ratio":84.15,"sla":97.33,"ftf":74.55,"cost_ly":522814.15,"pm_ratio_ly":74.83,"availability_ly":99.581,"lat":48.13,"lon":11.65},{"site_id":"S09","site":"Stuttgart Feuerbach","region":"Süd","assets":87,"cost":565608.53,"budget":628878.0,"variance_pct":-10.1,"availability":99.702,"mttr":6.411,"pm_ratio":84.03,"sla":96.55,"ftf":86.18,"cost_ly":553938.84,"pm_ratio_ly":72.13,"availability_ly":99.588,"lat":48.81,"lon":9.16},{"site_id":"S10","site":"Nürnberg Hafen","region":"Süd","assets":86,"cost":531916.93,"budget":669124.0,"variance_pct":-20.5,"availability":99.719,"mttr":6.642,"pm_ratio":86.46,"sla":97.18,"ftf":78.22,"cost_ly":600667.62,"pm_ratio_ly":78.89,"availability_ly":99.588,"lat":49.41,"lon":11.06},{"site_id":"S11","site":"Leipzig Nord","region":"Ost","assets":78,"cost":516896.13,"budget":574813.0,"variance_pct":-10.1,"availability":99.552,"mttr":6.867,"pm_ratio":68.94,"sla":97.21,"ftf":79.21,"cost_ly":580629.64,"pm_ratio_ly":61.65,"availability_ly":99.437,"lat":51.39,"lon":12.39},{"site_id":"S12","site":"Dresden Werk","region":"Ost","assets":70,"cost":479209.1,"budget":537059.0,"variance_pct":-10.8,"availability":99.483,"mttr":6.833,"pm_ratio":62.77,"sla":96.12,"ftf":85.11,"cost_ly":466849.66,"pm_ratio_ly":71.58,"availability_ly":99.481,"lat":51.07,"lon":13.73}],"pareto":[{"code":"Bearing wear","category":"Mechanical","n":397,"cost":532997.0,"downtime":4271.9},{"code":"Seal leakage","category":"Mechanical","n":241,"cost":338715.0,"downtime":2702.4},{"code":"Misalignment / vibration","category":"Mechanical","n":216,"cost":342594.0,"downtime":2475.8},{"code":"Sensor / instrumentation fault","category":"Instrumentation","n":169,"cost":322789.0,"downtime":2029.8},{"code":"Belt / chain failure","category":"Mechanical","n":157,"cost":206902.0,"downtime":1724.3},{"code":"Overheating","category":"Electrical","n":141,"cost":275791.0,"downtime":1678.3},{"code":"Motor winding failure","category":"Electrical","n":141,"cost":215587.0,"downtime":1579.9},{"code":"Blockage / fouling","category":"Process","n":166,"cost":171157.0,"downtime":1369.5},{"code":"Refrigerant leak","category":"Process","n":155,"cost":159520.0,"downtime":1247.1},{"code":"No fault found","category":"Other","n":104,"cost":175653.0,"downtime":1216.7},{"code":"Insulation fault","category":"Electrical","n":63,"cost":251964.0,"downtime":1203.0},{"code":"Operator error","category":"Human","n":115,"cost":201613.0,"downtime":1188.0},{"code":"Control board defect","category":"Electrical","n":92,"cost":143948.0,"downtime":1026.3},{"code":"PLC / software error","category":"Instrumentation","n":49,"cost":107732.0,"downtime":689.1}],"risk":[{"asset":"PUMP-S05-0336","type":"Pump","site":"Duisburg Rhein","crit":"A","age":26,"failures":9,"downtime":97.9,"cost":11212.0,"score":103.2,"repl_value":34863},{"asset":"PUMP-S05-0348","type":"Pump","site":"Duisburg Rhein","crit":"A","age":30,"failures":8,"downtime":82.1,"cost":12011.0,"score":93.3,"repl_value":30685},{"asset":"PUMP-S05-0334","type":"Pump","site":"Duisburg Rhein","crit":"A","age":30,"failures":7,"downtime":78.1,"cost":10297.0,"score":80.2,"repl_value":40828},{"asset":"PUMP-S02-0121","type":"Pump","site":"Wiesbaden Nord","crit":"A","age":27,"failures":6,"downtime":66.6,"cost":7138.0,"score":61.4,"repl_value":48997},{"asset":"PUMP-S05-0378","type":"Pump","site":"Duisburg Rhein","crit":"A","age":22,"failures":7,"downtime":45.5,"cost":8340.0,"score":57.7,"repl_value":39397},{"asset":"PUMP-S03-0173","type":"Pump","site":"Hamburg Hafen","crit":"A","age":20,"failures":6,"downtime":72.8,"cost":8735.0,"score":53.7,"repl_value":28210},{"asset":"PUMP-S05-0384","type":"Pump","site":"Duisburg Rhein","crit":"B","age":27,"failures":8,"downtime":58.1,"cost":15605.0,"score":52.4,"repl_value":46899},{"asset":"PUMP-S05-0345","type":"Pump","site":"Duisburg Rhein","crit":"B","age":29,"failures":6,"downtime":89.7,"cost":14414.0,"score":47.2,"repl_value":27535},{"asset":"PUMP-S05-0370","type":"Pump","site":"Duisburg Rhein","crit":"C","age":28,"failures":10,"downtime":130.4,"cost":11771.0,"score":45.1,"repl_value":31882},{"asset":"PUMP-S05-0338","type":"Pump","site":"Duisburg Rhein","crit":"C","age":29,"failures":10,"downtime":122.3,"cost":13481.0,"score":44.8,"repl_value":45428},{"asset":"COMP-S12-0914","type":"Compressor","site":"Dresden Werk","crit":"B","age":26,"failures":6,"downtime":85.0,"cost":7698.0,"score":43.5,"repl_value":112006},{"asset":"PUMP-S04-0247","type":"Pump","site":"Bremen Werk","crit":"A","age":16,"failures":6,"downtime":42.8,"cost":5461.0,"score":41.8,"repl_value":29039}],"tech_by_level":[{"level":"Junior","ftf":70.6,"avg_wos":114.0,"n":23},{"level":"Professional","ftf":81.2,"avg_wos":113.0,"n":34},{"level":"Senior","ftf":85.2,"avg_wos":108.0,"n":23},{"level":"Expert","ftf":93.3,"avg_wos":77.0,"n":4}],"impact":{"Süd (programme)":{"before":{"work_orders":2984,"total_cost_eur":2256220.12,"labor_hours":9002.81,"mttr_hours":7.422,"mtbf_hours":3043.0,"availability_pct":99.526,"pm_ratio_pct":69.9,"sla_compliance_pct":95.95,"first_time_fix_pct":79.09,"emergency_share_pct":21.61,"cost_per_asset_eur":8953.25,"downtime_cost_eur":5040606.0,"total_cost_of_ownership_eur":7296826.12,"tco_per_asset_eur":28955.66},"after":{"work_orders":3474,"total_cost_eur":2081242.58,"labor_hours":9068.02,"mttr_hours":6.513,"mtbf_hours":5228.8,"availability_pct":99.72,"pm_ratio_pct":85.51,"sla_compliance_pct":96.32,"first_time_fix_pct":80.52,"emergency_share_pct":9.98,"cost_per_asset_eur":8258.9,"downtime_cost_eur":3367068.0,"total_cost_of_ownership_eur":5448310.58,"tco_per_asset_eur":21620.28}},"Other regions":{"before":{"work_orders":8786,"total_cost_eur":6393571.5,"labor_hours":26376.83,"mttr_hours":6.938,"mtbf_hours":2620.9,"availability_pct":99.497,"pm_ratio_pct":67.68,"sla_compliance_pct":96.95,"first_time_fix_pct":80.64,"emergency_share_pct":22.72,"cost_per_asset_eur":9252.64,"downtime_cost_eur":15530670.0,"total_cost_of_ownership_eur":21924241.5,"tco_per_asset_eur":31728.28},"after":{"work_orders":8640,"total_cost_eur":6336104.11,"labor_hours":26157.36,"mttr_hours":6.899,"mtbf_hours":2589.3,"availability_pct":99.497,"pm_ratio_pct":66.94,"sla_compliance_pct":95.98,"first_time_fix_pct":79.62,"emergency_share_pct":20.98,"cost_per_asset_eur":9169.47,"downtime_cost_eur":16173910.5,"total_cost_of_ownership_eur":22510014.61,"tco_per_asset_eur":32576.0}}},"portfolio":{"FY2024":{"work_orders":11784,"total_cost_eur":8634379.47,"labor_hours":34931.25,"mttr_hours":6.953,"mtbf_hours":2771.8,"availability_pct":99.519,"pm_ratio_pct":68.69,"sla_compliance_pct":96.81,"first_time_fix_pct":79.79,"emergency_share_pct":22.19,"cost_per_asset_eur":9156.29,"downtime_cost_eur":20850897.0,"total_cost_of_ownership_eur":29485276.47,"tco_per_asset_eur":31267.53},"FY2025":{"work_orders":11902,"total_cost_eur":8502750.07,"labor_hours":35303.86,"mttr_hours":7.026,"mtbf_hours":2849.8,"availability_pct":99.526,"pm_ratio_pct":70.15,"sla_compliance_pct":96.48,"first_time_fix_pct":79.83,"emergency_share_pct":20.38,"cost_per_asset_eur":9016.7,"downtime_cost_eur":20118841.5,"total_cost_of_ownership_eur":28621591.57,"tco_per_asset_eur":30351.63},"YTD2026":{"work_orders":9237,"total_cost_eur":6590059.35,"labor_hours":27188.88,"mttr_hours":6.757,"mtbf_hours":2787.6,"availability_pct":99.529,"pm_ratio_pct":71.11,"sla_compliance_pct":95.86,"first_time_fix_pct":80.01,"emergency_share_pct":20.94,"cost_per_asset_eur":6988.4,"downtime_cost_eur":15338784.0,"total_cost_of_ownership_eur":21928843.35,"tco_per_asset_eur":23254.34}},"dq":{"raw_rows":33464,"dq_rejected_rows":66,"cancelled_rows":475,"valid_rows":32923}};
+
+const MAP = [
+  ["Task", "Complex reports, dashboards and datasets in Power BI", "Star-schema semantic model with 38 certified measures, a calculation group, field parameter, SCD2 handling and a six-page report blueprint.", ["powerbi/semantic-model/", "powerbi/report/REPORT_BLUEPRINT.md"]],
+  ["Task", "Consulting departments on reporting design", "A 90-minute workshop format that starts from decisions, a one-page report canvas, and a request-to-launch process with 2-week iterations.", ["docs/05_requirements_workshop_kit.md"]],
+  ["Task", "Unified, sustainable Power BI governance", "Operating model with RACI, three content tiers, naming and workspace standards, certification checklist, tenant monitoring.", ["docs/02_governance_framework.md", "governance/scripts/tenant_inventory.py"]],
+  ["Task", "Establish and integrate the other Power Platform tools", "Power Apps CRUD app, three Power Automate flows (4-eyes approval, data alerts, access requests), environments, DLP and ALM with solutions.", ["docs/04_power_platform.md"]],
+  ["Task", "Self-service BI environment with coaching", "Four-level maturity path, curriculum, office hours, champions network and adoption KPIs.", ["docs/03_self_service_coaching.md"]],
+  ["Task", "Simple CRUD apps for audit-proof database maintenance", "Asset master data app in Power Fx on Azure SQL temporal tables: no delete rights, mandatory change reason, optimistic concurrency, approval for critical fields.", ["powerplatform/asset-master-data-app/", "sql/azure-sql/master_data_crud_audit.sql"]],
+  ["Profile", "Power BI expertise with very good DAX", "TREATAS instead of bi-directional filters, WINDOW functions, Pareto with ADDCOLUMNS, dynamic narrative, ratio-aware calc group deltas.", ["powerbi/semantic-model/measures.yaml"]],
+  ["Profile", "Very good SQL, ideally Snowflake or Databricks", "Dynamic tables, QUALIFY, RATIO_TO_REPORT, LAG-based MTBF, a difference-in-differences query, and the Unity Catalog version of the design.", ["sql/snowflake/06_analytical_queries.sql", "sql/databricks/"]],
+  ["Profile", "Governance of Power BI: lifecycle and access control", "PBIP/TMDL in Git, BPA and reconciliation gates, deployment pipelines with parameter rules, RLS/OLS, access with expiry and re-certification.", [".github/workflows/powerbi-ci-cd.yml", "governance/bpa/BPARules.json"]],
+  ["Profile", "Communication and coaching of departments", "A management summary with four quantified recommendations, a KPI catalogue in business language, and an interview walkthrough.", ["docs/06_insights_and_recommendations.md", "docs/07_kpi_catalogue.md"]]
+];
+
+const REGIONS = ["ALL", "Nord", "Mitte", "West", "Süd", "Ost"];
+let region = "ALL";
+let tab = "overview";
+let charts = [];
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const eur = (v, d = 0) => "€" + Number(v).toLocaleString("en-GB", { maximumFractionDigits: d, minimumFractionDigits: d });
+const eurM = v => "€" + (v / 1e6).toLocaleString("en-GB", { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + " M";
+const pct = (v, d = 1) => Number(v).toFixed(d) + " %";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const shortMonth = m => { const [y, mm] = m.split("-"); return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+mm - 1] + " " + y.slice(2); };
+
+function deltaHtml(diff, unit, higherIsGood) {
+  if (diff === null || isNaN(diff)) return '<span class="delta flat">no prior year</span>';
+  const good = higherIsGood ? diff > 0 : diff < 0;
+  const flat = Math.abs(diff) < (unit === "pp" ? 0.05 : 0.5);
+  const cls = flat ? "flat" : good ? "good" : "bad";
+  const arrow = diff > 0 ? "▲" : diff < 0 ? "▼" : "■";
+  const val = unit === "pp" ? Math.abs(diff).toFixed(2) + " pp" : Math.abs(diff).toFixed(1) + " %";
+  return `<span class="delta ${cls}">${arrow} ${val} vs 2025</span>`;
+}
+
+function renderTiles() {
+  const k = DATA.region_kpis[region], c = k.cur, l = k.ly;
+  const varPct = (c.total_cost_eur / k.budget - 1) * 100;
+  const status = varPct > 5 ? ["bad", "over budget"] : varPct > 0 ? ["warn", "slightly over"] : ["good", "within budget"];
+  const tiles = [
+    ["Maintenance cost", eurM(c.total_cost_eur), deltaHtml((c.total_cost_eur / l.total_cost_eur - 1) * 100, "%", false)],
+    ["vs budget", (varPct > 0 ? "+" : "−") + Math.abs(varPct).toFixed(1) + " %", `<span class="pill ${status[0]}">${status[1]}</span>`],
+    ["TCO per asset", eur(c.tco_per_asset_eur), deltaHtml((c.tco_per_asset_eur / l.tco_per_asset_eur - 1) * 100, "%", false)],
+    ["Availability", pct(c.availability_pct, 2), deltaHtml(c.availability_pct - l.availability_pct, "pp", true)],
+    ["PM ratio", pct(c.pm_ratio_pct), deltaHtml(c.pm_ratio_pct - l.pm_ratio_pct, "pp", true)],
+    ["SLA compliance", pct(c.sla_compliance_pct), deltaHtml(c.sla_compliance_pct - l.sla_compliance_pct, "pp", true)]
+  ];
+  document.getElementById("tiles").innerHTML = tiles.map(t =>
+    `<div class="tile"><span class="label">${t[0]}</span><span class="v">${t[1]}</span>${t[2]}</div>`).join("");
+
+  const sites = DATA.scorecard.filter(s => region === "ALL" || s.region === region);
+  const worst = [...sites].sort((a, b) => b.variance_pct - a.variance_pct)[0];
+  const scope = region === "ALL" ? "All regions" : "Region " + region;
+  let text = `<b>${scope}:</b> maintenance cost of ${eurM(c.total_cost_eur)} is ${Math.abs(varPct).toFixed(1)} % ${varPct > 0 ? "above" : "below"} budget. Availability is ${pct(c.availability_pct, 2)} with a PM ratio of ${pct(c.pm_ratio_pct, 0)}. `;
+  text += worst && worst.variance_pct > 5
+    ? `Attention: <b>${esc(worst.site)}</b> is ${worst.variance_pct.toFixed(1)} % over budget, with SLA at ${pct(worst.sla)}.`
+    : "No site is more than 5 % over budget.";
+  document.getElementById("narrative").innerHTML = text;
+}
+
+function renderScorecard() {
+  const rows = DATA.scorecard.filter(s => region === "ALL" || s.region === region).sort((a, b) => b.variance_pct - a.variance_pct);
+  const pill = v => v > 5 ? `<span class="pill bad">+${v.toFixed(1)} %</span>` : v > 0 ? `<span class="pill warn">+${v.toFixed(1)} %</span>` : `<span class="pill good">${v.toFixed(1).replace("-", "−")} %</span>`;
+  document.getElementById("t-score").innerHTML =
+    `<thead><tr><th>Site</th><th class="l">Region</th><th>Cost YTD</th><th>Budget</th><th>Variance</th><th>Availability</th><th>Δ vs 2025</th><th>PM ratio</th><th>SLA</th><th>MTTR h</th></tr></thead><tbody>` +
+    rows.map(s => `<tr class="${s.variance_pct > 10 ? "row-alert" : ""}"><td>${esc(s.site)}</td><td class="l">${esc(s.region)}</td><td>${eur(s.cost)}</td><td>${eur(s.budget)}</td><td>${pill(s.variance_pct)}</td><td>${pct(s.availability, 2)}</td><td>${(s.availability - s.availability_ly >= 0 ? "+" : "−") + Math.abs(s.availability - s.availability_ly).toFixed(2)} pp</td><td>${pct(s.pm_ratio)}</td><td>${pct(s.sla)}</td><td>${s.mttr.toFixed(2)}</td></tr>`).join("") + "</tbody>";
+}
+
+function baseOpts(extra = {}) {
+  const ink = css("--ink"), muted = css("--muted"), line = css("--line");
+  return Object.assign({
+    responsive: true, maintainAspectRatio: false, animation: { duration: 350 },
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { labels: { color: ink, boxWidth: 12, boxHeight: 12, font: { family: "Barlow", size: 13 } } },
+      tooltip: { backgroundColor: css("--surface"), titleColor: ink, bodyColor: ink, borderColor: line, borderWidth: 1, padding: 10, titleFont: { family: "IBM Plex Mono" }, bodyFont: { family: "Barlow" } }
+    },
+    scales: {
+      x: { ticks: { color: muted, font: { family: "IBM Plex Mono", size: 10 }, maxRotation: 0, autoSkipPadding: 12 }, grid: { display: false }, border: { color: line } },
+      y: { ticks: { color: muted, font: { family: "IBM Plex Mono", size: 10 } }, grid: { color: line }, border: { display: false } }
+    }
+  }, extra);
+}
+
+function mk(id, cfg) { if (!window.Chart) return null; const c = new Chart(document.getElementById(id), cfg); charts.push(c); return c; }
+
+const goLive = {
+  id: "goLive",
+  afterDatasetsDraw(chart, args, o) {
+    if (o.index == null) return;
+    const x = chart.scales.x.getPixelForValue(o.index), { top, bottom } = chart.chartArea, ctx = chart.ctx;
+    ctx.save(); ctx.strokeStyle = css("--signal"); ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = css("--ink"); ctx.font = "500 11px 'IBM Plex Mono', monospace"; ctx.fillText(o.label, x + 6, top + 12); ctx.restore();
+  }
+};
+
+function renderOverview() {
+  const s = DATA.series[region], labels = DATA.months.map(shortMonth);
+  mk("c-cost", { type: "bar", data: { labels, datasets: [
+      { type: "bar", label: "Maintenance cost", data: s.cost, backgroundColor: css("--steel"), borderRadius: 2, order: 2 },
+      { type: "line", label: "Budget", data: s.budget, borderColor: css("--signal"), backgroundColor: css("--signal"), borderWidth: 2.5, pointRadius: 0, tension: .25, order: 1 }
+    ] }, options: baseOpts({ scales: { ...baseOpts().scales, y: { ...baseOpts().scales.y, ticks: { ...baseOpts().scales.y.ticks, callback: v => "€" + (v / 1000).toFixed(0) + "k" } } },
+      plugins: { ...baseOpts().plugins, tooltip: { ...baseOpts().plugins.tooltip, callbacks: { label: c => c.dataset.label + ": " + eur(c.raw) } } } }) });
+  const avail = s.availability;
+  mk("c-avail", { type: "line", data: { labels, datasets: [{ label: "Availability", data: avail, borderColor: css("--steel"), backgroundColor: css("--steel-soft") + "55", fill: true, tension: .3, borderWidth: 2,
+      pointRadius: avail.map((_, i) => i === avail.length - 1 ? 4 : 0), pointBackgroundColor: css("--steel") }] },
+    options: baseOpts({ plugins: { ...baseOpts().plugins, legend: { display: false }, tooltip: { ...baseOpts().plugins.tooltip, callbacks: { label: c => "Availability: " + c.raw.toFixed(2) + " %" } } },
+      scales: { ...baseOpts().scales, y: { ...baseOpts().scales.y, ticks: { ...baseOpts().scales.y.ticks, callback: v => v.toFixed(1) + "%" } } } }) });
+}
+
+function renderReliability() {
+  const p = DATA.pareto, tot = p.reduce((a, b) => a + b.downtime, 0);
+  let run = 0; const cum = p.map(x => +((run += x.downtime) / tot * 100).toFixed(1));
+  mk("c-pareto", { type: "bar", data: { labels: p.map(x => x.code), datasets: [
+      { type: "bar", label: "Downtime hours", data: p.map(x => x.downtime), backgroundColor: p.map((x, i) => i < 2 ? css("--bad") : css("--steel")), borderRadius: 2, yAxisID: "y", order: 2 },
+      { type: "line", label: "Cumulative %", data: cum, borderColor: css("--signal"), backgroundColor: css("--signal"), borderWidth: 2.5, pointRadius: 3, yAxisID: "y1", order: 1 }
+    ] }, options: baseOpts({ scales: { x: { ...baseOpts().scales.x, ticks: { ...baseOpts().scales.x.ticks, autoSkip: false, maxRotation: 50, minRotation: 35 } },
+      y: { ...baseOpts().scales.y, title: { display: false } },
+      y1: { position: "right", min: 0, max: 100, ticks: { color: css("--muted"), font: { family: "IBM Plex Mono", size: 10 }, callback: v => v + "%" }, grid: { display: false }, border: { display: false } } } }) });
+
+  const r = DATA.replace, mx = Math.max(...r.map(x => x.ratio));
+  document.getElementById("t-replace").innerHTML =
+    `<thead><tr><th>Asset</th><th class="l">Site</th><th>Crit.</th><th>Age</th><th>Failures</th><th>TCO 12 m</th><th>Replacement</th><th>Ratio</th></tr></thead><tbody>` +
+    r.map(x => `<tr><td>${esc(x.asset)}</td><td class="l">${esc(x.site)}</td><td><span class="crit ${x.crit}">${x.crit}</span></td><td>${x.age} y</td><td>${x.failures}</td><td>${eur(x.tco)}</td><td>${eur(x.repl_value)}</td><td><span class="ratio"><i style="width:${Math.round(x.ratio / mx * 70)}px"></i>${x.ratio.toFixed(2)}</span></td></tr>`).join("") + "</tbody>";
+  const rs = DATA.replace_summary, d = DATA.scorecard.find(s => s.site_id === "S05");
+  document.getElementById("rr-callout").innerHTML =
+    `<b>Duisburg Rhein</b> is ${d.variance_pct.toFixed(1)} % over budget with the lowest availability (${pct(d.availability, 2)}) and SLA at ${pct(d.sla)}. <b>${rs.duisburg_pumps} pumps</b> there, installed 1996 to 2005, cost ${eurM(rs.duisburg_pumps_tco)} in the last 12 months against ${eurM(rs.duisburg_pumps_capex)} to replace them.`;
+}
+
+function renderService() {
+  const sites = DATA.scorecard.filter(s => region === "ALL" || s.region === region).sort((a, b) => a.sla - b.sla);
+  mk("c-sla", { type: "bar", data: { labels: sites.map(s => s.site), datasets: [{ label: "SLA compliance", data: sites.map(s => s.sla),
+      backgroundColor: sites.map(s => s.sla < 92 ? css("--bad") : css("--steel")), borderRadius: 2 }] },
+    options: baseOpts({ indexAxis: "y", plugins: { ...baseOpts().plugins, legend: { display: false } },
+      scales: { x: { ...baseOpts().scales.y, min: 80, max: 100, ticks: { ...baseOpts().scales.y.ticks, callback: v => v + "%" } }, y: { ...baseOpts().scales.x, ticks: { ...baseOpts().scales.x.ticks, font: { family: "Barlow", size: 12 } } } } }) });
+  const t = DATA.tech_by_level;
+  mk("c-ftf", { type: "bar", data: { labels: t.map(x => x.level), datasets: [{ label: "First-time fix", data: t.map(x => x.ftf),
+      backgroundColor: t.map(x => x.level === "Junior" ? css("--signal") : css("--steel")), borderRadius: 2 }] },
+    options: baseOpts({ plugins: { ...baseOpts().plugins, legend: { display: false }, tooltip: { ...baseOpts().plugins.tooltip, callbacks: { label: c => c.raw.toFixed(1) + " %  (" + t[c.dataIndex].n + " technicians)" } } },
+      scales: { ...baseOpts().scales, y: { ...baseOpts().scales.y, min: 50, max: 100, ticks: { ...baseOpts().scales.y.ticks, callback: v => v + "%" } } } }) });
+  const s = DATA.series[region], labels = DATA.months.map(shortMonth);
+  const col = { Preventive: css("--steel"), Inspection: css("--steel-soft"), Corrective: css("--warn"), Emergency: css("--bad") };
+  mk("c-mix", { type: "bar", data: { labels, datasets: Object.keys(col).map(k => ({ label: k, data: s.types[k], backgroundColor: col[k], stack: "a" })) },
+    options: baseOpts({ scales: { x: { ...baseOpts().scales.x, stacked: true }, y: { ...baseOpts().scales.y, stacked: true } } }) });
+}
+
+function pmRatio(types, i) { const p = types.Preventive[i], f = types.Corrective[i] + types.Emergency[i]; return p + f ? +(p / (p + f) * 100).toFixed(1) : null; }
+
+function renderPM() {
+  const labels = DATA.months.map(shortMonth), others = ["Nord", "Mitte", "West", "Ost"];
+  const sued = DATA.months.map((_, i) => pmRatio(DATA.series["Süd"].types, i));
+  const ctrl = DATA.months.map((_, i) => {
+    const t = { Preventive: [0], Corrective: [0], Emergency: [0] };
+    others.forEach(r => ["Preventive", "Corrective", "Emergency"].forEach(k => t[k][0] += DATA.series[r].types[k][i]));
+    return pmRatio(t, 0);
+  });
+  mk("c-pm", { type: "line", data: { labels, datasets: [
+      { label: "Süd (programme)", data: sued, borderColor: css("--steel"), backgroundColor: css("--steel"), borderWidth: 2.5, pointRadius: 0, tension: .3 },
+      { label: "Other regions (control)", data: ctrl, borderColor: css("--muted"), backgroundColor: css("--muted"), borderWidth: 2, borderDash: [4, 3], pointRadius: 0, tension: .3 }
+    ] }, plugins: [goLive], options: baseOpts({ plugins: { ...baseOpts().plugins, goLive: { index: DATA.months.indexOf("2025-07"), label: "go-live" } },
+      scales: { ...baseOpts().scales, y: { ...baseOpts().scales.y, min: 50, max: 100, ticks: { ...baseOpts().scales.y.ticks, callback: v => v + "%" } } } }) });
+
+  const T = DATA.impact["Süd (programme)"], C = DATA.impact["Other regions"];
+  const rows = [
+    ["TCO per asset", "tco_per_asset_eur", "eur", false], ["Maintenance cost per asset", "cost_per_asset_eur", "eur", false],
+    ["PM ratio", "pm_ratio_pct", "pct", true], ["Emergency share of failures", "emergency_share_pct", "pct", false], ["Availability", "availability_pct", "pct2", true]
+  ];
+  const f = (v, t) => t === "eur" ? eur(v) : t === "pct2" ? pct(v, 2) : pct(v);
+  const ch = (a, b, t, hi) => {
+    const d = t === "eur" ? (b / a - 1) * 100 : b - a, u = t === "eur" ? " %" : " pp";
+    const good = hi ? d > 0 : d < 0, cls = Math.abs(d) < 0.05 ? "flat" : good ? "good" : "bad";
+    return `<span class="delta ${cls}">${d > 0 ? "+" : "−"}${Math.abs(d).toFixed(t === "pct2" ? 2 : 1)}${u}</span>`;
+  };
+  document.getElementById("t-impact").innerHTML =
+    `<thead><tr><th>KPI</th><th>Süd before</th><th>Süd after</th><th>Change</th><th>Control before</th><th>Control after</th><th>Change</th></tr></thead><tbody>` +
+    rows.map(([n, k, t, hi]) => `<tr><td>${n}</td><td>${f(T.before[k], t)}</td><td>${f(T.after[k], t)}</td><td>${ch(T.before[k], T.after[k], t, hi)}</td><td>${f(C.before[k], t)}</td><td>${f(C.after[k], t)}</td><td>${ch(C.before[k], C.after[k], t, hi)}</td></tr>`).join("") + "</tbody>";
+  const did = ((T.after.tco_per_asset_eur / T.before.tco_per_asset_eur) - (C.after.tco_per_asset_eur / C.before.tco_per_asset_eur)) * 100;
+  document.getElementById("did").textContent = (did < 0 ? "−" : "+") + Math.abs(did).toFixed(0) + " pp";
+}
+
+function render() {
+  charts.forEach(c => c.destroy()); charts = [];
+  document.getElementById("region-wrap").hidden = !(tab === "overview" || tab === "service");
+  if (tab === "overview") { renderTiles(); renderScorecard(); renderOverview(); }
+  if (tab === "reliability") renderReliability();
+  if (tab === "service") renderService();
+  if (tab === "pm") renderPM();
+}
+
+function initControls() {
+  const seg = document.getElementById("region-seg");
+  seg.innerHTML = REGIONS.map(r => `<button type="button" id="reg-${r}" aria-pressed="${r === region}" data-r="${r}">${r === "ALL" ? "All" : r}</button>`).join("");
+  seg.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    region = b.dataset.r; seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); render();
+  });
+  const tabs = [...document.querySelectorAll(".tab")];
+  const select = t => {
+    tab = t.dataset.tab;
+    tabs.forEach(x => { const on = x === t; x.setAttribute("aria-selected", on); x.tabIndex = on ? 0 : -1; document.getElementById("panel-" + x.dataset.tab).hidden = !on; });
+    render();
+  };
+  tabs.forEach((t, i) => {
+    t.addEventListener("click", () => select(t));
+    t.addEventListener("keydown", e => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      const n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); select(n);
+    });
+  });
+  const hash = (location.hash || "").slice(1);
+  const start = tabs.find(t => t.dataset.tab === hash);
+  if (start) select(start);
+}
+
+function renderMap() {
+  document.getElementById("map").innerHTML = MAP.map(([kind, req, ev, files]) =>
+    `<div class="map-row"><div class="req"><span class="label">${kind}</span>${esc(req)}</div><div class="ev"><span>${esc(ev)}</span><span>${files.map(f => `<code>${esc(f)}</code>`).join(" ")}</span></div></div>`).join("");
+}
+
+function staticFacts() {
+  const s = DATA.replace_summary, T = DATA.impact["Süd (programme)"];
+  document.getElementById("fact-wo").textContent = DATA.dq.raw_rows.toLocaleString("en-GB") + " work orders";
+  document.getElementById("f2").textContent = "−" + Math.abs((T.after.tco_per_asset_eur / T.before.tco_per_asset_eur - 1) * 100).toFixed(0) + " %";
+  document.getElementById("f3").textContent = s.duisburg_pumps + " pumps";
+}
+
+renderMap(); staticFacts();
+if (window.Chart) {
+  Chart.defaults.font.family = "Barlow, 'Segoe UI', sans-serif";
+  initControls(); render();
+  const rerender = () => render();
+  try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rerender); } catch (e) {}
+  new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+} else {
+  document.querySelector(".board").insertAdjacentHTML("afterbegin", '<p class="callout" style="margin:16px">Charts could not load. The tables and findings below still show the results.</p>');
+  initControls();
+}
+</script>

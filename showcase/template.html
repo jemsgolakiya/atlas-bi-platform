@@ -1,0 +1,579 @@
+<title>ATLAS Maintenance BI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single 1180px column; an industrial "work-order ticket" header with a hazard strip,
+   then findings, an operable dashboard, and the build evidence mapped to the job description. */
+:root {
+  --paper: #EEF2F5;
+  --surface: #FFFFFF;
+  --ink: #13202B;
+  --muted: #566573;
+  --line: #D3DBE2;
+  --steel: #1F4E79;
+  --steel-soft: #8DB0CF;
+  --signal: #F2B705;
+  --on-signal: #13202B;
+  --good: #1D7A45;
+  --warn: #A86A0B;
+  --bad: #B03A2E;
+  --good-bg: #E3F2E9;
+  --warn-bg: #FBF0DC;
+  --bad-bg: #F8E3E0;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0E151C; --surface: #151F29; --ink: #E4EBF1; --muted: #93A2B0; --line: #263441;
+    --steel: #6FA8DC; --steel-soft: #35587A; --signal: #F5C518; --on-signal: #13202B;
+    --good: #52C285; --warn: #E3A945; --bad: #EC6F62;
+    --good-bg: #16301F; --warn-bg: #33270F; --bad-bg: #3A1B18;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0E151C; --surface: #151F29; --ink: #E4EBF1; --muted: #93A2B0; --line: #263441;
+  --steel: #6FA8DC; --steel-soft: #35587A; --signal: #F5C518; --on-signal: #13202B;
+  --good: #52C285; --warn: #E3A945; --bad: #EC6F62;
+  --good-bg: #16301F; --warn-bg: #33270F; --bad-bg: #3A1B18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 0 64px; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.05; margin: 0; text-wrap: balance; letter-spacing: .005em; }
+h2 { font-size: clamp(1.8rem, 3.2vw, 2.4rem); }
+h3 { font-size: 1.25rem; font-weight: 600; }
+p { margin: 0; }
+.label { font-family: var(--mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+a { color: var(--steel); }
+:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+
+/* ---------- header ticket */
+.hazard { height: 10px; margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); background: repeating-linear-gradient(-45deg, var(--signal) 0 14px, var(--ink) 14px 28px); }
+header.ticket { display: grid; gap: 22px; padding-top: 36px; }
+.ticket-meta { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.ticket-meta span b { color: var(--ink); font-weight: 500; }
+.title-row { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 12px 36px; align-items: end; }
+h1 { font-size: clamp(4.5rem, 14vw, 9.5rem); line-height: .82; letter-spacing: -.01em; }
+.thesis { font-size: clamp(1.1rem, 1.8vw, 1.35rem); max-width: 58ch; color: var(--ink); padding-bottom: 8px; }
+.stack { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-family: var(--mono); font-size: .75rem; padding: 4px 10px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); color: var(--ink); }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--muted); font-size: .95rem; border-top: 1px solid var(--line); padding-top: 14px; }
+
+/* ---------- findings */
+.findings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 3px solid var(--ink); }
+.finding { padding: 18px 20px 4px 0; display: grid; gap: 8px; align-content: start; }
+.finding + .finding { padding-left: 20px; border-left: 1px solid var(--line); }
+.finding .big { font-family: var(--display); font-weight: 700; font-size: clamp(2.2rem, 4vw, 3rem); line-height: 1; }
+.finding .big.mark { background: linear-gradient(transparent 62%, var(--signal) 62% 92%, transparent 92%); color: var(--ink); width: fit-content; }
+.finding p { color: var(--muted); font-size: .95rem; }
+
+/* ---------- dashboard */
+.section-head { display: grid; gap: 10px; max-width: 75ch; }
+.section-head p { color: var(--muted); }
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.board-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); align-items: center; }
+.tabs, .seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.tab, .seg button { font: 500 .92rem var(--body); border: 1px solid transparent; background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 4px; cursor: pointer; }
+.tab:hover, .seg button:hover { color: var(--ink); background: var(--paper); }
+.tab[aria-selected="true"] { color: var(--ink); border-color: var(--line); background: var(--paper); box-shadow: inset 0 -3px 0 var(--signal); }
+.seg { border: 1px solid var(--line); border-radius: 5px; padding: 3px; }
+.seg button { font-family: var(--mono); font-size: .78rem; padding: 5px 9px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.seg-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.panel { padding: 20px 16px 24px; display: grid; gap: 22px; }
+.tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 5px; }
+.tile { padding: 14px 14px 12px; display: grid; gap: 4px; align-content: start; }
+.tile + .tile { border-left: 1px solid var(--line); }
+.tile .v { font-family: var(--display); font-weight: 600; font-size: 1.9rem; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.delta { font-family: var(--mono); font-size: .75rem; }
+.delta.good { color: var(--good); } .delta.bad { color: var(--bad); } .delta.flat { color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 22px; }
+.grid2.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.chart-box { display: grid; gap: 8px; min-width: 0; }
+.chart-box .cap { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.chart-box .cap h3 { font-size: 1.1rem; }
+.canvas-wrap { position: relative; height: 260px; }
+.canvas-wrap.tall { height: 320px; }
+.note { font-size: .92rem; color: var(--muted); max-width: 70ch; }
+.callout { border-left: 4px solid var(--signal); padding: 10px 14px; background: var(--paper); border-radius: 0 4px 4px 0; font-size: .97rem; }
+.callout b { font-weight: 600; }
+
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 5px; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; min-width: 640px; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child, th.l, td.l { text-align: left; }
+thead th { font-family: var(--mono); font-weight: 500; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--paper); position: sticky; top: 0; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.row-alert td { background: var(--bad-bg); }
+.pill { display: inline-block; font-family: var(--mono); font-size: .7rem; padding: 2px 8px; border-radius: 999px; font-weight: 500; }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.crit { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 3px; font-family: var(--mono); font-size: .75rem; font-weight: 500; border: 1px solid var(--line); }
+.crit.A { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.ratio { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.ratio i { display: block; height: 8px; border-radius: 2px; background: var(--bad); }
+
+/* ---------- mapping & build */
+.map { display: grid; gap: 0; border-top: 3px solid var(--ink); }
+.map-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 24px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.map-row .req { font-weight: 600; }
+.map-row .req .label { display: block; margin-bottom: 4px; font-weight: 400; }
+.map-row .ev { color: var(--ink); display: grid; gap: 6px; }
+.map-row code, .hl-grid code { font-family: var(--mono); font-size: .8rem; background: var(--surface); border: 1px solid var(--line); padding: 1px 6px; border-radius: 3px; overflow-wrap: anywhere; }
+
+.flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; position: relative; }
+.stage { padding: 16px 18px; display: grid; gap: 10px; align-content: start; border: 1px solid var(--line); background: var(--surface); }
+.stage + .stage { border-left: 0; }
+.stage h3 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.stage ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: .92rem; }
+.stage li { padding-left: 14px; position: relative; }
+.stage li::before { content: ""; position: absolute; left: 0; top: .62em; width: 6px; height: 2px; background: var(--steel); }
+.stage .label { color: var(--steel); }
+
+.hl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 32px; }
+.hl { display: grid; gap: 8px; align-content: start; border-top: 1px solid var(--ink); padding-top: 12px; }
+.hl p { color: var(--muted); font-size: .96rem; }
+
+.repo { background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: .82rem; line-height: 1.6; margin: 0; color: var(--ink); }
+.repo .c { color: var(--muted); }
+footer { border-top: 1px solid var(--line); padding-top: 18px; color: var(--muted); font-size: .9rem; display: grid; gap: 6px; }
+
+@media (max-width: 980px) {
+  .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tile:nth-child(4) { border-left: 0; }
+  .tile:nth-child(n+4) { border-top: 1px solid var(--line); }
+  .grid2, .grid2.even { grid-template-columns: minmax(0, 1fr); }
+  .findings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .finding:nth-child(3) { padding-left: 0; border-left: 0; }
+  .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stage:nth-child(3) { border-left: 1px solid var(--line); }
+  .stage:nth-child(n+3) { border-top: 0; }
+  .hl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .title-row { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile:nth-child(odd) { border-left: 0; }
+  .tile:nth-child(4) { border-left: 1px solid var(--line); }
+  .tile:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .findings, .flow, .hl-grid { grid-template-columns: minmax(0, 1fr); }
+  .finding + .finding { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .stage { border-left: 1px solid var(--line) !important; }
+  .stage + .stage { border-top: 0; }
+  .map-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .canvas-wrap { height: 230px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <div>
+    <div class="hazard" aria-hidden="true"></div>
+    <header class="ticket">
+      <div class="ticket-meta label">
+        <span>Case study <b>WO-ATLAS-2026</b></span>
+        <span>Role <b>Senior BI Developer · Power BI &amp; Power Platform</b></span>
+        <span>Status <b>Delivered</b></span>
+      </div>
+      <div class="title-row">
+        <h1>ATLAS</h1>
+        <p class="thesis">A governed self-service BI platform for industrial maintenance. Snowflake feeds one certified Power BI model; Power Apps keeps master data audit-proof; governance and coaching make it last.</p>
+      </div>
+      <div class="stack" aria-label="Technology">
+        <span class="chip">Power BI · DAX · TMDL</span><span class="chip">Snowflake</span><span class="chip">Databricks UC</span>
+        <span class="chip">Power Apps · Power Fx</span><span class="chip">Power Automate</span><span class="chip">Azure SQL temporal</span>
+        <span class="chip">GitHub Actions · BPA</span><span class="chip">Python · pytest</span>
+      </div>
+      <div class="facts">
+        <span>Helios Industrial Services GmbH <span class="label">(fictional)</span></span>
+        <span class="num" id="fact-wo">33,464 work orders</span>
+        <span>943 assets · 12 sites · 5 regions</span>
+        <span>Jan 2024 – Sep 2026</span>
+      </div>
+    </header>
+  </div>
+
+  <section aria-labelledby="h-find" style="display:grid;gap:16px">
+    <h2 id="h-find" class="label" style="font-family:var(--mono);font-size:.75rem;font-weight:500">Four decisions the platform supports</h2>
+    <div class="findings">
+      <div class="finding"><span class="big mark num" id="f1">€3.2 M</span><p>Yearly TCO potential from rolling out preventive maintenance company-wide, using half of the pilot's measured effect.</p></div>
+      <div class="finding"><span class="big num" id="f2">−25 %</span><p>TCO per asset in the Süd pilot region after go-live. The control regions rose 2.7 % over the same period.</p></div>
+      <div class="finding"><span class="big num" id="f3">20 pumps</span><p>in Duisburg cost more per year than replacing them: €1.54 M TCO against €0.74 M capex.</p></div>
+      <div class="finding"><span class="big num" id="f4">38 KPIs</span><p>defined once as code and reconciled to the cent against an independent SQL and pandas reference.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-dash" style="display:grid;gap:20px">
+    <div class="section-head">
+      <span class="label">Dashboard preview</span>
+      <h2 id="h-dash">The report the departments open every morning</h2>
+      <p>A web rendition of the Power BI report, built from the same synthetic data and the same KPI definitions. Year to date is January to September 2026, compared with the same months of 2025.</p>
+    </div>
+    <div class="board">
+      <div class="board-bar">
+        <div class="tabs" role="tablist" aria-label="Report pages">
+          <button class="tab" role="tab" id="tab-overview" aria-selected="true" data-tab="overview">Executive overview</button>
+          <button class="tab" role="tab" id="tab-reliability" aria-selected="false" data-tab="reliability">Reliability &amp; assets</button>
+          <button class="tab" role="tab" id="tab-service" aria-selected="false" data-tab="service">Service</button>
+          <button class="tab" role="tab" id="tab-pm" aria-selected="false" data-tab="pm">PM programme</button>
+        </div>
+        <div class="seg-wrap" id="region-wrap">
+          <span class="label">Region</span>
+          <div class="seg" id="region-seg" role="group" aria-label="Region filter"></div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+        <div class="tiles" id="tiles"></div>
+        <p class="callout" id="narrative"></p>
+        <div class="grid2">
+          <div class="chart-box"><div class="cap"><h3>Maintenance cost vs budget</h3><span class="label">€ per month</span></div><div class="canvas-wrap"><canvas id="c-cost" aria-label="Monthly maintenance cost against budget"></canvas></div></div>
+          <div class="chart-box"><div class="cap"><h3>Availability</h3><span class="label">% of asset hours</span></div><div class="canvas-wrap"><canvas id="c-avail" aria-label="Monthly availability"></canvas></div></div>
+        </div>
+        <div class="chart-box">
+          <div class="cap"><h3>Site scorecard, YTD 2026</h3><span class="label">sorted by budget variance</span></div>
+          <div class="tbl-wrap"><table id="t-score"></table></div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-reliability" role="tabpanel" aria-labelledby="tab-reliability" hidden>
+        <p class="callout" id="rr-callout"></p>
+        <div class="chart-box"><div class="cap"><h3>Where downtime comes from</h3><span class="label">failure hours YTD 2026 · cumulative %</span></div><div class="canvas-wrap tall"><canvas id="c-pareto" aria-label="Pareto of downtime by failure mode"></canvas></div></div>
+        <div class="chart-box">
+          <div class="cap"><h3>Repair or replace</h3><span class="label">last 12 months · TCO ÷ replacement value</span></div>
+          <div class="tbl-wrap"><table id="t-replace"></table></div>
+          <p class="note">TCO is repair cost plus downtime cost at Controlling's rates (A €1,200 / B €450 / C €150 per hour). A ratio above 1 means a year of repairs cost more than a new asset.</p>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-service" role="tabpanel" aria-labelledby="tab-service" hidden>
+        <div class="grid2 even">
+          <div class="chart-box"><div class="cap"><h3>SLA compliance by site</h3><span class="label">% started within target</span></div><div class="canvas-wrap tall"><canvas id="c-sla" aria-label="SLA compliance by site"></canvas></div></div>
+          <div class="chart-box"><div class="cap"><h3>First-time fix by skill level</h3><span class="label">failure work orders 2026</span></div><div class="canvas-wrap tall"><canvas id="c-ftf" aria-label="First time fix rate by technician skill level"></canvas></div></div>
+        </div>
+        <div class="chart-box"><div class="cap"><h3>Work order mix</h3><span class="label">count per month</span></div><div class="canvas-wrap"><canvas id="c-mix" aria-label="Monthly work orders by type"></canvas></div></div>
+        <p class="callout">Juniors fix <b>70.6 %</b> of failures on the first visit, seniors <b>85.2 %</b>. The coaching plan pairs juniors with seniors on criticality-A assets.</p>
+      </div>
+
+      <div class="panel" id="panel-pm" role="tabpanel" aria-labelledby="tab-pm" hidden>
+        <p class="callout">Region Süd started a preventive maintenance programme on <b>1 July 2025</b>. The other four regions act as the control group. Twelve months before and after, difference-in-differences on TCO per asset: <b id="did">−28 pp</b>.</p>
+        <div class="chart-box"><div class="cap"><h3>PM ratio, programme region vs control</h3><span class="label">preventive ÷ (preventive + failures)</span></div><div class="canvas-wrap"><canvas id="c-pm" aria-label="PM ratio over time for Süd and other regions"></canvas></div></div>
+        <div class="chart-box"><div class="cap"><h3>Before and after go-live</h3><span class="label">12 months each</span></div><div class="tbl-wrap"><table id="t-impact"></table></div></div>
+      </div>
+    </div>
+    <p class="note">Every number here comes from <code style="font-family:var(--mono);font-size:.8rem">scripts/kpi_reference.py</code>, the same engine the CI pipeline uses to test the published Power BI model.</p>
+  </section>
+
+  <section aria-labelledby="h-map" style="display:grid;gap:20px">
+    <div class="section-head">
+      <span class="label">Job description → evidence</span>
+      <h2 id="h-map">Every requirement, and where to find it</h2>
+    </div>
+    <div class="map" id="map"></div>
+  </section>
+
+  <section aria-labelledby="h-arch" style="display:grid;gap:20px">
+    <div class="section-head">
+      <span class="label">Architecture</span>
+      <h2 id="h-arch">From source system to a decision</h2>
+      <p>Row-level logic lives in Snowflake, aggregation logic in DAX, and access is defined once for both.</p>
+    </div>
+    <div class="flow">
+      <div class="stage"><h3>Sources <span class="label">ingest</span></h3><ul><li>CMMS work orders via Snowpipe</li><li>Asset master data from the Power Apps CRUD app</li><li>HR technician list</li><li>Controlling budget</li></ul></div>
+      <div class="stage"><h3>Snowflake <span class="label">RAW · SILVER · GOLD</span></h3><ul><li>Dynamic tables with freshness targets</li><li>DQ flags, never silent drops</li><li>SCD2 assets, point-in-time joins</li><li>Masking and row-access policies</li><li>9 automated DQ tests, hourly</li></ul></div>
+      <div class="stage"><h3>Power BI <span class="label">certified</span></h3><ul><li>Star schema, single-direction only</li><li>38 measures as code</li><li>RLS and OLS from the shared entitlement table</li><li>Time-intelligence calculation group</li><li>Incremental refresh, DEV → TEST → PROD</li></ul></div>
+      <div class="stage"><h3>People <span class="label">adoption</span></h3><ul><li>Apps per department audience</li><li>Champions build on certified models</li><li>Alerts and approvals in Teams</li><li>Usage and access reviewed monthly</li></ul></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-eng" style="display:grid;gap:20px">
+    <div class="section-head">
+      <span class="label">Engineering details a reviewer will ask about</span>
+      <h2 id="h-eng">What makes it production-grade</h2>
+    </div>
+    <div class="hl-grid">
+      <div class="hl"><h3>Measures as code</h3><p>One YAML file generates the TMDL script, the DAX query view script and the business KPI catalogue, so they cannot drift apart.</p></div>
+      <div class="hl"><h3>Numbers proven before certification</h3><p>CI queries the published model through the REST API and fails if any KPI deviates more than 0.1 % from the independent reference.</p></div>
+      <div class="hl"><h3>Security defined once</h3><p>Snowflake row-access policies and Power BI RLS read the same entitlement table, with ticket IDs and expiry dates for quarterly re-certification.</p></div>
+      <div class="hl"><h3>Audit-proof CRUD app</h3><p>Temporal tables keep every version for 10 years, the app can only call procedures, and a constraint makes self-approval of critical changes impossible.</p></div>
+      <div class="hl"><h3>Best Practice Analyzer gate</h3><p>14 rules covering performance, DAX style, naming, descriptions and PII protection. Severity 3 blocks the merge.</p></div>
+      <div class="hl"><h3>Coaching with a measurable path</h3><p>Four levels from consumer to champion, a graded mini-project before build rights, and adoption KPIs such as share of views on certified content.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-repo" style="display:grid;gap:16px">
+    <div class="section-head"><span class="label">Repository</span><h2 id="h-repo">What is in the repo</h2></div>
+<pre class="repo">atlas-bi-platform/
+├── data/                    <span class="c"># seeded synthetic CSVs + gold layer for local Power BI</span>
+├── sql/snowflake/           <span class="c"># 00 RBAC · 01 raw · 02 silver · 03 gold · 04 security · 05 DQ · 06 analytics</span>
+├── sql/databricks/          <span class="c"># Unity Catalog equivalent: Delta MERGE SCD2, row filters, masks</span>
+├── sql/azure-sql/           <span class="c"># audit-proof CRUD back end (temporal tables, 4-eyes)</span>
+├── powerbi/                 <span class="c"># Power Query, measures.yaml → TMDL/DAX, roles, calc group, theme, blueprint</span>
+├── powerplatform/           <span class="c"># Power Apps source (Power Fx) for the master data app</span>
+├── governance/              <span class="c"># BPA rules, tenant inventory, deployment and refresh scripts</span>
+├── .github/workflows/       <span class="c"># CI/CD: catalogue sync, tests, BPA, DQ, deploy, reconcile</span>
+├── tests/                   <span class="c"># pytest on the gold layer + post-deploy DAX reconciliation</span>
+└── docs/                    <span class="c"># architecture, governance, coaching, Power Platform, insights, KPI catalogue</span></pre>
+  </section>
+
+  <footer>
+    <span>All company names, people and figures are synthetic, generated with a fixed seed so every result is reproducible.</span>
+    <span class="label">ATLAS · portfolio case study · data through 30 Sep 2026</span>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const DATA = __DATA__;
+
+const MAP = [
+  ["Task", "Complex reports, dashboards and datasets in Power BI", "Star-schema semantic model with 38 certified measures, a calculation group, field parameter, SCD2 handling and a six-page report blueprint.", ["powerbi/semantic-model/", "powerbi/report/REPORT_BLUEPRINT.md"]],
+  ["Task", "Consulting departments on reporting design", "A 90-minute workshop format that starts from decisions, a one-page report canvas, and a request-to-launch process with 2-week iterations.", ["docs/05_requirements_workshop_kit.md"]],
+  ["Task", "Unified, sustainable Power BI governance", "Operating model with RACI, three content tiers, naming and workspace standards, certification checklist, tenant monitoring.", ["docs/02_governance_framework.md", "governance/scripts/tenant_inventory.py"]],
+  ["Task", "Establish and integrate the other Power Platform tools", "Power Apps CRUD app, three Power Automate flows (4-eyes approval, data alerts, access requests), environments, DLP and ALM with solutions.", ["docs/04_power_platform.md"]],
+  ["Task", "Self-service BI environment with coaching", "Four-level maturity path, curriculum, office hours, champions network and adoption KPIs.", ["docs/03_self_service_coaching.md"]],
+  ["Task", "Simple CRUD apps for audit-proof database maintenance", "Asset master data app in Power Fx on Azure SQL temporal tables: no delete rights, mandatory change reason, optimistic concurrency, approval for critical fields.", ["powerplatform/asset-master-data-app/", "sql/azure-sql/master_data_crud_audit.sql"]],
+  ["Profile", "Power BI expertise with very good DAX", "TREATAS instead of bi-directional filters, WINDOW functions, Pareto with ADDCOLUMNS, dynamic narrative, ratio-aware calc group deltas.", ["powerbi/semantic-model/measures.yaml"]],
+  ["Profile", "Very good SQL, ideally Snowflake or Databricks", "Dynamic tables, QUALIFY, RATIO_TO_REPORT, LAG-based MTBF, a difference-in-differences query, and the Unity Catalog version of the design.", ["sql/snowflake/06_analytical_queries.sql", "sql/databricks/"]],
+  ["Profile", "Governance of Power BI: lifecycle and access control", "PBIP/TMDL in Git, BPA and reconciliation gates, deployment pipelines with parameter rules, RLS/OLS, access with expiry and re-certification.", [".github/workflows/powerbi-ci-cd.yml", "governance/bpa/BPARules.json"]],
+  ["Profile", "Communication and coaching of departments", "A management summary with four quantified recommendations, a KPI catalogue in business language, and an interview walkthrough.", ["docs/06_insights_and_recommendations.md", "docs/07_kpi_catalogue.md"]]
+];
+
+const REGIONS = ["ALL", "Nord", "Mitte", "West", "Süd", "Ost"];
+let region = "ALL";
+let tab = "overview";
+let charts = [];
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const eur = (v, d = 0) => "€" + Number(v).toLocaleString("en-GB", { maximumFractionDigits: d, minimumFractionDigits: d });
+const eurM = v => "€" + (v / 1e6).toLocaleString("en-GB", { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + " M";
+const pct = (v, d = 1) => Number(v).toFixed(d) + " %";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const shortMonth = m => { const [y, mm] = m.split("-"); return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+mm - 1] + " " + y.slice(2); };
+
+function deltaHtml(diff, unit, higherIsGood) {
+  if (diff === null || isNaN(diff)) return '<span class="delta flat">no prior year</span>';
+  const good = higherIsGood ? diff > 0 : diff < 0;
+  const flat = Math.abs(diff) < (unit === "pp" ? 0.05 : 0.5);
+  const cls = flat ? "flat" : good ? "good" : "bad";
+  const arrow = diff > 0 ? "▲" : diff < 0 ? "▼" : "■";
+  const val = unit === "pp" ? Math.abs(diff).toFixed(2) + " pp" : Math.abs(diff).toFixed(1) + " %";
+  return `<span class="delta ${cls}">${arrow} ${val} vs 2025</span>`;
+}
+
+function renderTiles() {
+  const k = DATA.region_kpis[region], c = k.cur, l = k.ly;
+  const varPct = (c.total_cost_eur / k.budget - 1) * 100;
+  const status = varPct > 5 ? ["bad", "over budget"] : varPct > 0 ? ["warn", "slightly over"] : ["good", "within budget"];
+  const tiles = [
+    ["Maintenance cost", eurM(c.total_cost_eur), deltaHtml((c.total_cost_eur / l.total_cost_eur - 1) * 100, "%", false)],
+    ["vs budget", (varPct > 0 ? "+" : "−") + Math.abs(varPct).toFixed(1) + " %", `<span class="pill ${status[0]}">${status[1]}</span>`],
+    ["TCO per asset", eur(c.tco_per_asset_eur), deltaHtml((c.tco_per_asset_eur / l.tco_per_asset_eur - 1) * 100, "%", false)],
+    ["Availability", pct(c.availability_pct, 2), deltaHtml(c.availability_pct - l.availability_pct, "pp", true)],
+    ["PM ratio", pct(c.pm_ratio_pct), deltaHtml(c.pm_ratio_pct - l.pm_ratio_pct, "pp", true)],
+    ["SLA compliance", pct(c.sla_compliance_pct), deltaHtml(c.sla_compliance_pct - l.sla_compliance_pct, "pp", true)]
+  ];
+  document.getElementById("tiles").innerHTML = tiles.map(t =>
+    `<div class="tile"><span class="label">${t[0]}</span><span class="v">${t[1]}</span>${t[2]}</div>`).join("");
+
+  const sites = DATA.scorecard.filter(s => region === "ALL" || s.region === region);
+  const worst = [...sites].sort((a, b) => b.variance_pct - a.variance_pct)[0];
+  const scope = region === "ALL" ? "All regions" : "Region " + region;
+  let text = `<b>${scope}:</b> maintenance cost of ${eurM(c.total_cost_eur)} is ${Math.abs(varPct).toFixed(1)} % ${varPct > 0 ? "above" : "below"} budget. Availability is ${pct(c.availability_pct, 2)} with a PM ratio of ${pct(c.pm_ratio_pct, 0)}. `;
+  text += worst && worst.variance_pct > 5
+    ? `Attention: <b>${esc(worst.site)}</b> is ${worst.variance_pct.toFixed(1)} % over budget, with SLA at ${pct(worst.sla)}.`
+    : "No site is more than 5 % over budget.";
+  document.getElementById("narrative").innerHTML = text;
+}
+
+function renderScorecard() {
+  const rows = DATA.scorecard.filter(s => region === "ALL" || s.region === region).sort((a, b) => b.variance_pct - a.variance_pct);
+  const pill = v => v > 5 ? `<span class="pill bad">+${v.toFixed(1)} %</span>` : v > 0 ? `<span class="pill warn">+${v.toFixed(1)} %</span>` : `<span class="pill good">${v.toFixed(1).replace("-", "−")} %</span>`;
+  document.getElementById("t-score").innerHTML =
+    `<thead><tr><th>Site</th><th class="l">Region</th><th>Cost YTD</th><th>Budget</th><th>Variance</th><th>Availability</th><th>Δ vs 2025</th><th>PM ratio</th><th>SLA</th><th>MTTR h</th></tr></thead><tbody>` +
+    rows.map(s => `<tr class="${s.variance_pct > 10 ? "row-alert" : ""}"><td>${esc(s.site)}</td><td class="l">${esc(s.region)}</td><td>${eur(s.cost)}</td><td>${eur(s.budget)}</td><td>${pill(s.variance_pct)}</td><td>${pct(s.availability, 2)}</td><td>${(s.availability - s.availability_ly >= 0 ? "+" : "−") + Math.abs(s.availability - s.availability_ly).toFixed(2)} pp</td><td>${pct(s.pm_ratio)}</td><td>${pct(s.sla)}</td><td>${s.mttr.toFixed(2)}</td></tr>`).join("") + "</tbody>";
+}
+
+function baseOpts(extra = {}) {
+  const ink = css("--ink"), muted = css("--muted"), line = css("--line");
+  return Object.assign({
+    responsive: true, maintainAspectRatio: false, animation: { duration: 350 },
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { labels: { color: ink, boxWidth: 12, boxHeight: 12, font: { family: "Barlow", size: 13 } } },
+      tooltip: { backgroundColor: css("--surface"), titleColor: ink, bodyColor: ink, borderColor: line, borderWidth: 1, padding: 10, titleFont: { family: "IBM Plex Mono" }, bodyFont: { family: "Barlow" } }
+    },
+    scales: {
+      x: { ticks: { color: muted, font: { family: "IBM Plex Mono", size: 10 }, maxRotation: 0, autoSkipPadding: 12 }, grid: { display: false }, border: { color: line } },
+      y: { ticks: { color: muted, font: { family: "IBM Plex Mono", size: 10 } }, grid: { color: line }, border: { display: false } }
+    }
+  }, extra);
+}
+
+function mk(id, cfg) { if (!window.Chart) return null; const c = new Chart(document.getElementById(id), cfg); charts.push(c); return c; }
+
+const goLive = {
+  id: "goLive",
+  afterDatasetsDraw(chart, args, o) {
+    if (o.index == null) return;
+    const x = chart.scales.x.getPixelForValue(o.index), { top, bottom } = chart.chartArea, ctx = chart.ctx;
+    ctx.save(); ctx.strokeStyle = css("--signal"); ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = css("--ink"); ctx.font = "500 11px 'IBM Plex Mono', monospace"; ctx.fillText(o.label, x + 6, top + 12); ctx.restore();
+  }
+};
+
+function renderOverview() {
+  const s = DATA.series[region], labels = DATA.months.map(shortMonth);
+  mk("c-cost", { type: "bar", data: { labels, datasets: [
+      { type: "bar", label: "Maintenance cost", data: s.cost, backgroundColor: css("--steel"), borderRadius: 2, order: 2 },
+      { type: "line", label: "Budget", data: s.budget, borderColor: css("--signal"), backgroundColor: css("--signal"), borderWidth: 2.5, pointRadius: 0, tension: .25, order: 1 }
+    ] }, options: baseOpts({ scales: { ...baseOpts().scales, y: { ...baseOpts().scales.y, ticks: { ...baseOpts().scales.y.ticks, callback: v => "€" + (v / 1000).toFixed(0) + "k" } } },
+      plugins: { ...baseOpts().plugins, tooltip: { ...baseOpts().plugins.tooltip, callbacks: { label: c => c.dataset.label + ": " + eur(c.raw) } } } }) });
+  const avail = s.availability;
+  mk("c-avail", { type: "line", data: { labels, datasets: [{ label: "Availability", data: avail, borderColor: css("--steel"), backgroundColor: css("--steel-soft") + "55", fill: true, tension: .3, borderWidth: 2,
+      pointRadius: avail.map((_, i) => i === avail.length - 1 ? 4 : 0), pointBackgroundColor: css("--steel") }] },
+    options: baseOpts({ plugins: { ...baseOpts().plugins, legend: { display: false }, tooltip: { ...baseOpts().plugins.tooltip, callbacks: { label: c => "Availability: " + c.raw.toFixed(2) + " %" } } },
+      scales: { ...baseOpts().scales, y: { ...baseOpts().scales.y, ticks: { ...baseOpts().scales.y.ticks, callback: v => v.toFixed(1) + "%" } } } }) });
+}
+
+function renderReliability() {
+  const p = DATA.pareto, tot = p.reduce((a, b) => a + b.downtime, 0);
+  let run = 0; const cum = p.map(x => +((run += x.downtime) / tot * 100).toFixed(1));
+  mk("c-pareto", { type: "bar", data: { labels: p.map(x => x.code), datasets: [
+      { type: "bar", label: "Downtime hours", data: p.map(x => x.downtime), backgroundColor: p.map((x, i) => i < 2 ? css("--bad") : css("--steel")), borderRadius: 2, yAxisID: "y", order: 2 },
+      { type: "line", label: "Cumulative %", data: cum, borderColor: css("--signal"), backgroundColor: css("--signal"), borderWidth: 2.5, pointRadius: 3, yAxisID: "y1", order: 1 }
+    ] }, options: baseOpts({ scales: { x: { ...baseOpts().scales.x, ticks: { ...baseOpts().scales.x.ticks, autoSkip: false, maxRotation: 50, minRotation: 35 } },
+      y: { ...baseOpts().scales.y, title: { display: false } },
+      y1: { position: "right", min: 0, max: 100, ticks: { color: css("--muted"), font: { family: "IBM Plex Mono", size: 10 }, callback: v => v + "%" }, grid: { display: false }, border: { display: false } } } }) });
+
+  const r = DATA.replace, mx = Math.max(...r.map(x => x.ratio));
+  document.getElementById("t-replace").innerHTML =
+    `<thead><tr><th>Asset</th><th class="l">Site</th><th>Crit.</th><th>Age</th><th>Failures</th><th>TCO 12 m</th><th>Replacement</th><th>Ratio</th></tr></thead><tbody>` +
+    r.map(x => `<tr><td>${esc(x.asset)}</td><td class="l">${esc(x.site)}</td><td><span class="crit ${x.crit}">${x.crit}</span></td><td>${x.age} y</td><td>${x.failures}</td><td>${eur(x.tco)}</td><td>${eur(x.repl_value)}</td><td><span class="ratio"><i style="width:${Math.round(x.ratio / mx * 70)}px"></i>${x.ratio.toFixed(2)}</span></td></tr>`).join("") + "</tbody>";
+  const rs = DATA.replace_summary, d = DATA.scorecard.find(s => s.site_id === "S05");
+  document.getElementById("rr-callout").innerHTML =
+    `<b>Duisburg Rhein</b> is ${d.variance_pct.toFixed(1)} % over budget with the lowest availability (${pct(d.availability, 2)}) and SLA at ${pct(d.sla)}. <b>${rs.duisburg_pumps} pumps</b> there, installed 1996 to 2005, cost ${eurM(rs.duisburg_pumps_tco)} in the last 12 months against ${eurM(rs.duisburg_pumps_capex)} to replace them.`;
+}
+
+function renderService() {
+  const sites = DATA.scorecard.filter(s => region === "ALL" || s.region === region).sort((a, b) => a.sla - b.sla);
+  mk("c-sla", { type: "bar", data: { labels: sites.map(s => s.site), datasets: [{ label: "SLA compliance", data: sites.map(s => s.sla),
+      backgroundColor: sites.map(s => s.sla < 92 ? css("--bad") : css("--steel")), borderRadius: 2 }] },
+    options: baseOpts({ indexAxis: "y", plugins: { ...baseOpts().plugins, legend: { display: false } },
+      scales: { x: { ...baseOpts().scales.y, min: 80, max: 100, ticks: { ...baseOpts().scales.y.ticks, callback: v => v + "%" } }, y: { ...baseOpts().scales.x, ticks: { ...baseOpts().scales.x.ticks, font: { family: "Barlow", size: 12 } } } } }) });
+  const t = DATA.tech_by_level;
+  mk("c-ftf", { type: "bar", data: { labels: t.map(x => x.level), datasets: [{ label: "First-time fix", data: t.map(x => x.ftf),
+      backgroundColor: t.map(x => x.level === "Junior" ? css("--signal") : css("--steel")), borderRadius: 2 }] },
+    options: baseOpts({ plugins: { ...baseOpts().plugins, legend: { display: false }, tooltip: { ...baseOpts().plugins.tooltip, callbacks: { label: c => c.raw.toFixed(1) + " %  (" + t[c.dataIndex].n + " technicians)" } } },
+      scales: { ...baseOpts().scales, y: { ...baseOpts().scales.y, min: 50, max: 100, ticks: { ...baseOpts().scales.y.ticks, callback: v => v + "%" } } } }) });
+  const s = DATA.series[region], labels = DATA.months.map(shortMonth);
+  const col = { Preventive: css("--steel"), Inspection: css("--steel-soft"), Corrective: css("--warn"), Emergency: css("--bad") };
+  mk("c-mix", { type: "bar", data: { labels, datasets: Object.keys(col).map(k => ({ label: k, data: s.types[k], backgroundColor: col[k], stack: "a" })) },
+    options: baseOpts({ scales: { x: { ...baseOpts().scales.x, stacked: true }, y: { ...baseOpts().scales.y, stacked: true } } }) });
+}
+
+function pmRatio(types, i) { const p = types.Preventive[i], f = types.Corrective[i] + types.Emergency[i]; return p + f ? +(p / (p + f) * 100).toFixed(1) : null; }
+
+function renderPM() {
+  const labels = DATA.months.map(shortMonth), others = ["Nord", "Mitte", "West", "Ost"];
+  const sued = DATA.months.map((_, i) => pmRatio(DATA.series["Süd"].types, i));
+  const ctrl = DATA.months.map((_, i) => {
+    const t = { Preventive: [0], Corrective: [0], Emergency: [0] };
+    others.forEach(r => ["Preventive", "Corrective", "Emergency"].forEach(k => t[k][0] += DATA.series[r].types[k][i]));
+    return pmRatio(t, 0);
+  });
+  mk("c-pm", { type: "line", data: { labels, datasets: [
+      { label: "Süd (programme)", data: sued, borderColor: css("--steel"), backgroundColor: css("--steel"), borderWidth: 2.5, pointRadius: 0, tension: .3 },
+      { label: "Other regions (control)", data: ctrl, borderColor: css("--muted"), backgroundColor: css("--muted"), borderWidth: 2, borderDash: [4, 3], pointRadius: 0, tension: .3 }
+    ] }, plugins: [goLive], options: baseOpts({ plugins: { ...baseOpts().plugins, goLive: { index: DATA.months.indexOf("2025-07"), label: "go-live" } },
+      scales: { ...baseOpts().scales, y: { ...baseOpts().scales.y, min: 50, max: 100, ticks: { ...baseOpts().scales.y.ticks, callback: v => v + "%" } } } }) });
+
+  const T = DATA.impact["Süd (programme)"], C = DATA.impact["Other regions"];
+  const rows = [
+    ["TCO per asset", "tco_per_asset_eur", "eur", false], ["Maintenance cost per asset", "cost_per_asset_eur", "eur", false],
+    ["PM ratio", "pm_ratio_pct", "pct", true], ["Emergency share of failures", "emergency_share_pct", "pct", false], ["Availability", "availability_pct", "pct2", true]
+  ];
+  const f = (v, t) => t === "eur" ? eur(v) : t === "pct2" ? pct(v, 2) : pct(v);
+  const ch = (a, b, t, hi) => {
+    const d = t === "eur" ? (b / a - 1) * 100 : b - a, u = t === "eur" ? " %" : " pp";
+    const good = hi ? d > 0 : d < 0, cls = Math.abs(d) < 0.05 ? "flat" : good ? "good" : "bad";
+    return `<span class="delta ${cls}">${d > 0 ? "+" : "−"}${Math.abs(d).toFixed(t === "pct2" ? 2 : 1)}${u}</span>`;
+  };
+  document.getElementById("t-impact").innerHTML =
+    `<thead><tr><th>KPI</th><th>Süd before</th><th>Süd after</th><th>Change</th><th>Control before</th><th>Control after</th><th>Change</th></tr></thead><tbody>` +
+    rows.map(([n, k, t, hi]) => `<tr><td>${n}</td><td>${f(T.before[k], t)}</td><td>${f(T.after[k], t)}</td><td>${ch(T.before[k], T.after[k], t, hi)}</td><td>${f(C.before[k], t)}</td><td>${f(C.after[k], t)}</td><td>${ch(C.before[k], C.after[k], t, hi)}</td></tr>`).join("") + "</tbody>";
+  const did = ((T.after.tco_per_asset_eur / T.before.tco_per_asset_eur) - (C.after.tco_per_asset_eur / C.before.tco_per_asset_eur)) * 100;
+  document.getElementById("did").textContent = (did < 0 ? "−" : "+") + Math.abs(did).toFixed(0) + " pp";
+}
+
+function render() {
+  charts.forEach(c => c.destroy()); charts = [];
+  document.getElementById("region-wrap").hidden = !(tab === "overview" || tab === "service");
+  if (tab === "overview") { renderTiles(); renderScorecard(); renderOverview(); }
+  if (tab === "reliability") renderReliability();
+  if (tab === "service") renderService();
+  if (tab === "pm") renderPM();
+}
+
+function initControls() {
+  const seg = document.getElementById("region-seg");
+  seg.innerHTML = REGIONS.map(r => `<button type="button" id="reg-${r}" aria-pressed="${r === region}" data-r="${r}">${r === "ALL" ? "All" : r}</button>`).join("");
+  seg.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    region = b.dataset.r; seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); render();
+  });
+  const tabs = [...document.querySelectorAll(".tab")];
+  const select = t => {
+    tab = t.dataset.tab;
+    tabs.forEach(x => { const on = x === t; x.setAttribute("aria-selected", on); x.tabIndex = on ? 0 : -1; document.getElementById("panel-" + x.dataset.tab).hidden = !on; });
+    render();
+  };
+  tabs.forEach((t, i) => {
+    t.addEventListener("click", () => select(t));
+    t.addEventListener("keydown", e => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      const n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); select(n);
+    });
+  });
+  const hash = (location.hash || "").slice(1);
+  const start = tabs.find(t => t.dataset.tab === hash);
+  if (start) select(start);
+}
+
+function renderMap() {
+  document.getElementById("map").innerHTML = MAP.map(([kind, req, ev, files]) =>
+    `<div class="map-row"><div class="req"><span class="label">${kind}</span>${esc(req)}</div><div class="ev"><span>${esc(ev)}</span><span>${files.map(f => `<code>${esc(f)}</code>`).join(" ")}</span></div></div>`).join("");
+}
+
+function staticFacts() {
+  const s = DATA.replace_summary, T = DATA.impact["Süd (programme)"];
+  document.getElementById("fact-wo").textContent = DATA.dq.raw_rows.toLocaleString("en-GB") + " work orders";
+  document.getElementById("f2").textContent = "−" + Math.abs((T.after.tco_per_asset_eur / T.before.tco_per_asset_eur - 1) * 100).toFixed(0) + " %";
+  document.getElementById("f3").textContent = s.duisburg_pumps + " pumps";
+}
+
+renderMap(); staticFacts();
+if (window.Chart) {
+  Chart.defaults.font.family = "Barlow, 'Segoe UI', sans-serif";
+  initControls(); render();
+  const rerender = () => render();
+  try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rerender); } catch (e) {}
+  new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+} else {
+  document.querySelector(".board").insertAdjacentHTML("afterbegin", '<p class="callout" style="margin:16px">Charts could not load. The tables and findings below still show the results.</p>');
+  initControls();
+}
+</script>

@@ -1,0 +1,13 @@
+SITE_KEY,SITE_ID,SITE_NAME,CITY,REGION,COST_CENTER,LATITUDE,LONGITUDE
+1,S01,Frankfurt Ost,Frankfurt am Main,Mitte,CC-4100,50.12,8.73
+2,S02,Wiesbaden Nord,Wiesbaden,Mitte,CC-4110,50.1,8.24
+3,S03,Hamburg Hafen,Hamburg,Nord,CC-4200,53.54,9.97
+4,S04,Bremen Werk,Bremen,Nord,CC-4210,53.08,8.8
+5,S05,Duisburg Rhein,Duisburg,West,CC-4300,51.43,6.76
+6,S06,Köln Süd,Köln,West,CC-4310,50.9,6.96
+7,S07,Dortmund Nord,Dortmund,West,CC-4320,51.53,7.46
+8,S08,München Ost,München,Süd,CC-4400,48.13,11.65
+9,S09,Stuttgart Feuerbach,Stuttgart,Süd,CC-4410,48.81,9.16
+10,S10,Nürnberg Hafen,Nürnberg,Süd,CC-4420,49.41,11.06
+11,S11,Leipzig Nord,Leipzig,Ost,CC-4500,51.39,12.39
+12,S12,Dresden Werk,Dresden,Ost,CC-4510,51.07,13.73

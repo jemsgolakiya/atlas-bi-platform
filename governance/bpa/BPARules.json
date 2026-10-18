@@ -1,0 +1,145 @@
+[
+  {
+    "ID": "ATLAS_PERF_NO_DOUBLE",
+    "Name": "[Performance] Avoid floating point data types",
+    "Category": "Performance",
+    "Description": "Double causes rounding differences vs. Snowflake reconciliation. Use Decimal (Fixed decimal / Currency) or Int64.",
+    "Severity": 2,
+    "Scope": "DataColumn, CalculatedColumn, CalculatedTableColumn",
+    "Expression": "DataType = \"Double\"",
+    "FixExpression": "DataType = DataType.Decimal",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_PERF_NO_BIDI",
+    "Name": "[Performance] No bi-directional relationships",
+    "Category": "Performance",
+    "Description": "Bi-directional filters create ambiguity and slow models. Use TREATAS or a measure instead.",
+    "Severity": 3,
+    "Scope": "Relationship",
+    "Expression": "CrossFilteringBehavior == CrossFilteringBehavior.BothDirections",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_PERF_KEYS_NOT_SUMMARIZED",
+    "Name": "[Performance] Key columns must not be summarized",
+    "Category": "Performance",
+    "Description": "Numeric keys should have SummarizeBy = None.",
+    "Severity": 2,
+    "Scope": "DataColumn",
+    "Expression": "Name.EndsWith(\"Key\") and SummarizeBy <> AggregateFunction.None",
+    "FixExpression": "SummarizeBy = AggregateFunction.None",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_DAX_USE_DIVIDE",
+    "Name": "[DAX] Use DIVIDE() instead of the / operator",
+    "Category": "DAX Expressions",
+    "Description": "DIVIDE handles division by zero and returns BLANK.",
+    "Severity": 2,
+    "Scope": "Measure, CalculatedColumn, CalculationItem",
+    "Expression": "RegEx.IsMatch(Expression, \"\\]\\s*\\/(?!\\/)(?!\\*)\") or RegEx.IsMatch(Expression, \"\\)\\s*\\/(?!\\/)(?!\\*)\")",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_DAX_NO_IFERROR",
+    "Name": "[DAX] Avoid IFERROR / ISERROR",
+    "Category": "DAX Expressions",
+    "Description": "Error handling functions force cell-by-cell evaluation.",
+    "Severity": 2,
+    "Scope": "Measure, CalculatedColumn",
+    "Expression": "RegEx.IsMatch(Expression, \"(?i)(IFERROR|ISERROR)\\s*\\(\")",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_DAX_FULLY_QUALIFIED_COLUMNS",
+    "Name": "[DAX] Column references must be fully qualified",
+    "Category": "DAX Expressions",
+    "Description": "Write 'Table'[Column], and reference measures without a table name, so readers can tell them apart.",
+    "Severity": 2,
+    "Scope": "Measure, CalculatedColumn, CalculationItem",
+    "Expression": "DependsOn.Any(Key.ObjectType = \"Column\" and Value.Any(not FullyQualified))",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_GOV_MEASURE_DESCRIPTION",
+    "Name": "[Governance] Every visible measure needs a description",
+    "Category": "Governance",
+    "Description": "Descriptions appear as tooltips in the field list and feed the KPI catalogue. Mandatory for certification.",
+    "Severity": 3,
+    "Scope": "Measure",
+    "Expression": "IsHidden == false and string.IsNullOrWhitespace(Description)",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_GOV_MEASURE_FOLDER",
+    "Name": "[Governance] Every visible measure needs a display folder",
+    "Category": "Governance",
+    "Description": "Self-service users find measures by folder (01 Volume, 02 Cost, ...).",
+    "Severity": 2,
+    "Scope": "Measure",
+    "Expression": "IsHidden == false and string.IsNullOrWhitespace(DisplayFolder)",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_GOV_MEASURE_FORMAT",
+    "Name": "[Governance] Numeric measures need a format string",
+    "Category": "Governance",
+    "Description": "Unformatted numbers are the #1 source of user confusion.",
+    "Severity": 2,
+    "Scope": "Measure",
+    "Expression": "IsHidden == false and DataType <> DataType.String and string.IsNullOrWhitespace(FormatString) and FormatStringExpression == null",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_GOV_HIDE_FOREIGN_KEYS",
+    "Name": "[Governance] Hide foreign keys",
+    "Category": "Governance",
+    "Description": "Users should slice by dimension attributes, not by fact keys.",
+    "Severity": 2,
+    "Scope": "DataColumn",
+    "Expression": "UsedInRelationships.Any(FromColumn.Name == current.Name and FromCardinality == \"Many\") and IsHidden == false",
+    "FixExpression": "IsHidden = true",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_GOV_DATE_TABLE",
+    "Name": "[Governance] Model must contain a marked date table",
+    "Category": "Governance",
+    "Description": "Time intelligence requires a contiguous, marked date table.",
+    "Severity": 3,
+    "Scope": "Model",
+    "Expression": "not Tables.Any(DataCategory == \"Time\" and Columns.Any(IsKey == true and DataType == \"DateTime\"))",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_GOV_NAMING",
+    "Name": "[Governance] Visible objects use business names (no underscores / technical prefixes)",
+    "Category": "Naming Conventions",
+    "Description": "Visible names follow the business glossary. Exceptions: the _Measures table.",
+    "Severity": 1,
+    "Scope": "Table, Measure, DataColumn",
+    "Expression": "IsHidden == false and Name != \"_Measures\" and (Name.Contains(\"_\") or Name.StartsWith(\"dim\") or Name.StartsWith(\"fact\"))",
+    "CompatibilityLevel": 1200
+  },
+  {
+    "ID": "ATLAS_SEC_PII_PROTECTED",
+    "Name": "[Security] PII columns must be protected by object-level security",
+    "Category": "Security",
+    "Description": "Columns Email and Hourly Rate must have columnPermission = None in every role except 'HR Full Access'.",
+    "Severity": 3,
+    "Scope": "DataColumn",
+    "Expression": "(Name == \"Email\" or Name == \"Hourly Rate\") and Model.Roles.Any(Name != \"HR Full Access\" and current.ObjectLevelSecurity[it] != MetadataPermission.None)",
+    "CompatibilityLevel": 1400
+  },
+  {
+    "ID": "ATLAS_SEC_RLS_PRESENT",
+    "Name": "[Security] Certified models must define at least one RLS role",
+    "Category": "Security",
+    "Description": "Models without RLS cannot be published to the certified PROD workspace.",
+    "Severity": 3,
+    "Scope": "Model",
+    "Expression": "not Roles.Any(TablePermissions.Any(not string.IsNullOrWhitespace(FilterExpression)))",
+    "CompatibilityLevel": 1200
+  }
+]
