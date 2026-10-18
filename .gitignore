@@ -1,0 +1,6 @@
+__pycache__/
+.pytest_cache/
+*.pbix.bak
+.pbi/localSettings.json
+.pbi/cache.abf
+out/
