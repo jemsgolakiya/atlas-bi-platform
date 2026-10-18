@@ -1,14 +1,40 @@
-# ATLAS · Governed Self-Service BI Platform
+# ATLAS · Analytics & Trusted Layer for Asset Services
+
+*A governed self-service BI platform: Snowflake → certified Power BI model → Power Platform, with the governance and coaching to run it.*
 
 **Author:** Jemish Golakiya · Power BI & Data Analytics · Frankfurt am Main · [LinkedIn](https://www.linkedin.com/in/golakiya-jemish) · [GitHub](https://github.com/jemsgolakiya)
-
-**Snowflake → certified Power BI semantic model → Power Apps & Power Automate, with the governance and coaching to run it.**
 
 A complete, reproducible portfolio project for a fictional industrial maintenance company, *Helios Industrial Services GmbH* (12 German sites, 943 assets, 33,464 work orders, Jan 2024 – Sep 2026). It shows how I would build, govern and grow an enterprise Power BI platform, and which business decisions it enables.
 
 > **Live showcase:** interactive dashboard preview + project overview → open [`showcase/index.html`](showcase/index.html) in a browser (self-contained, no install)
 
-![Power BI](https://img.shields.io/badge/Power%20BI-DAX%20%7C%20TMDL%20%7C%20RLS%2FOLS-F2C811) ![Snowflake](https://img.shields.io/badge/Snowflake-Dynamic%20Tables%20%7C%20Policies-29B5E8) ![Power Platform](https://img.shields.io/badge/Power%20Platform-Apps%20%7C%20Automate-742774) ![CI](https://img.shields.io/badge/CI%2FCD-BPA%20%7C%20KPI%20reconciliation-2ea44f)
+![Power BI](https://img.shields.io/badge/Power%20BI-DAX%20%7C%20TMDL%20%7C%20RLS%2FOLS-F2C811) ![Snowflake](https://img.shields.io/badge/Snowflake-Dynamic%20Tables%20%7C%20Policies-29B5E8) ![Power Platform](https://img.shields.io/badge/Power%20Platform-Apps%20%7C%20Automate-742774) ![CI](https://img.shields.io/badge/CI%2FCD-BPA%20%7C%20KPI%20reconciliation-2ea44f) [![CI](https://github.com/jemsgolakiya/atlas-bi-platform/actions/workflows/powerbi-ci-cd.yml/badge.svg)](https://github.com/jemsgolakiya/atlas-bi-platform/actions/workflows/powerbi-ci-cd.yml)
+
+---
+
+## Dashboard preview
+
+<p align="center"><img src="docs/images/01_overview_header.png" width="900" alt="ATLAS case study: key findings"></p>
+
+| Executive overview | Reliability & assets |
+|---|---|
+| ![Executive overview: KPIs, cost vs budget, site scorecard](docs/images/02_executive_overview.png) | ![Reliability: downtime Pareto and repair-or-replace list](docs/images/03_reliability_assets.png) |
+| **Service** | **PM programme** |
+| ![Service: SLA by site, first-time fix by skill level](docs/images/04_service.png) | ![PM programme: pilot vs control, before/after go-live](docs/images/05_pm_programme.png) |
+
+*Screens from the interactive showcase, a web rendition of the Power BI report built on the same data and the same KPI definitions.*
+
+## Kurzfassung (Deutsch)
+
+ATLAS ist eine durchgängige, governte Self-Service-BI-Plattform für ein (fiktives) Instandhaltungsunternehmen mit 12 Standorten, 943 Anlagen und 33.464 Arbeitsaufträgen.
+
+- **Datenplattform:** Snowflake (RAW → SILVER → GOLD) mit SCD2-Historie, Masking- und Row-Access-Policies sowie automatisierten Datenqualitätstests; zusätzlich eine Databricks-Variante (Unity Catalog)
+- **Power BI:** zertifiziertes semantisches Modell im Sternschema, 38 KPIs als Code, RLS/OLS und eine Calculation Group für Zeitintelligenz
+- **Power Platform:** revisionssichere CRUD-App (Power Apps) auf Azure-SQL-Temporal-Tables mit Vier-Augen-Prinzip, Freigabe-Flows mit Power Automate
+- **Governance:** Lifecycle DEV → TEST → PROD, Berechtigungskonzept, Best Practice Analyzer und KPI-Abgleich in der CI/CD-Pipeline
+- **Self-Service & Coaching:** vierstufiges Schulungsprogramm und Workshop-Kit für Fachbereiche
+
+**Ergebnis:** Das Pilotprogramm zur vorbeugenden Instandhaltung senkte die TCO pro Anlage um 25 % (Potenzial ca. 3,2 Mio. € pro Jahr). 20 alte Pumpen in Duisburg kosten im Betrieb mehr als ihr Ersatz.
 
 ---
 
@@ -100,6 +126,8 @@ Then build the Power BI model in ~15 minutes following [`powerbi/README.md`](pow
 [01 Architecture](docs/01_architecture.md) · [02 Governance](docs/02_governance_framework.md) · [03 Coaching](docs/03_self_service_coaching.md) · [04 Power Platform](docs/04_power_platform.md) · [05 Workshop kit](docs/05_requirements_workshop_kit.md) · [06 Insights](docs/06_insights_and_recommendations.md) · [07 KPI catalogue](docs/07_kpi_catalogue.md)
 
 ---
+
+Licensed under the [MIT License](LICENSE).
 
 *All company names, people and figures are synthetic (seed 42). The project is built to be inspected: every number in the docs and the showcase can be regenerated and tested.*
 
