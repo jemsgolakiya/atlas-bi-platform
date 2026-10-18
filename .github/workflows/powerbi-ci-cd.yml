@@ -51,12 +51,14 @@ jobs:
           python -m pytest tests -q
 
       - name: Download Tabular Editor 2 CLI
+        if: hashFiles('powerbi/ATLAS.SemanticModel/**') != ''   # runs once the .pbip model is committed
         shell: pwsh
         run: |
           Invoke-WebRequest https://github.com/TabularEditor/TabularEditor/releases/latest/download/TabularEditor.Portable.zip -OutFile te.zip
           Expand-Archive te.zip -DestinationPath te
 
       - name: Best Practice Analyzer (fails on severity 3)
+        if: hashFiles('powerbi/ATLAS.SemanticModel/**') != ''   # runs once the .pbip model is committed
         shell: pwsh
         run: |
           ./te/TabularEditor.exe "powerbi/ATLAS.SemanticModel/definition" `
