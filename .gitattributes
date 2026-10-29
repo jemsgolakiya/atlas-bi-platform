@@ -1,0 +1,3 @@
+# The showcase pages are a static portfolio preview, not part of the platform code.
+# Exclude them from GitHub's language statistics.
+showcase/*.html linguist-documentation
